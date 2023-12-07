@@ -19,8 +19,8 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 
 def detect(opt):
-    ML_path = ""
-    ML_label = ""
+    ML_path = "weights/knn_model.joblib"
+    ML_label = "labels/sample"
     with open(ML_label, 'r') as file:
         ML_classes = file.readlines()
     joblib_model = joblib.load(ML_path)
@@ -109,7 +109,9 @@ def detect(opt):
                 scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
                 scale_coords(img.shape[2:], det[:, 6:], im0.shape, kpt_label=kpt_label, step=3)
 
-                normed_kps = np.zeros((det.shape[0], 17*2+1))
+                # normed_kps = np.zeros((det.shape[0], 17*2+1))
+                normed_kps = np.zeros((det.shape[0], 17*2))
+
                 box_height = det[:, 3] - det[:, 1]
                 box_width = det[:, 2] - det[:, 0]
                 for j in range(det.shape[0]):
@@ -118,9 +120,10 @@ def detect(opt):
                         normed_kps[j][i*2] = (det[j][6+i*3] - det[j][0]) / box_width[j]
                         normed_kps[j][i*2+1] = (det[j][7+i*3] - det[j][1]) / box_height[j]
 
-                    predict_num = joblib_model.predict(normed_kps[j])
-                    predict_action = ML_classes[int(predict_num)][:-1]
-                    actions.append(predict_action)
+                predict_nums = joblib_model.predict(normed_kps)
+                # predict_action = ML_classes[int(predict_num)][:-1]
+                actions = [ML_classes[int(n)] for n in predict_nums]
+                print(actions)
 
                 # Print results
                 for c in det[:, 5].unique():
