@@ -101,17 +101,14 @@ def detect(opt):
                 scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
                 scale_coords(img.shape[2:], det[:, 6:], im0.shape, kpt_label=kpt_label, step=3)
 
-                normed_kps = np.zeros((det.shape[0], 17*2))
+                normed_kps = np.zeros((det.shape[0], 17*2+1))
                 box_height = det[:, 3] - det[:, 1]
                 box_width = det[:, 2] - det[:, 0]
-                for i in range(17):
-                    for j in range(5):
+                for j in range(det.shape[0]):
+                    normed_kps[j][-1] = box_height/box_width
+                    for i in range(17):
                         normed_kps[j][i*2] = (det[j][6+i*3] - det[j][0]) / box_width[j]
                         normed_kps[j][i*2+1] = (det[j][7+i*3] - det[j][1]) / box_height[j]
-                        a = 1
-
-                a = 1
-
 
                 # Print results
                 for c in det[:, 5].unique():
