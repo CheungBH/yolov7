@@ -122,7 +122,7 @@ def detect(opt):
 
                 predict_nums = joblib_model.predict(normed_kps)
                 # predict_action = ML_classes[int(predict_num)][:-1]
-                actions = [ML_classes[int(n)] for n in predict_nums]
+                actions = [ML_classes[int(n)][:-1] for n in predict_nums]
                 print(actions)
 
                 # Print results
@@ -141,6 +141,7 @@ def detect(opt):
                     if save_img or opt.save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class
                         label = None if opt.hide_labels else (names[c] if opt.hide_conf else f'{names[c]} {conf:.2f}')
+                        label += f' {actions[det_index]}'
                         kpts = det[det_index, 6:]
                         plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
                         if opt.save_crop:
