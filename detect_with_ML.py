@@ -113,7 +113,7 @@ def detect(opt):
                 box_height = det[:, 3] - det[:, 1]
                 box_width = det[:, 2] - det[:, 0]
                 for j in range(det.shape[0]):
-                    normed_kps[j][-1] = box_height/box_width
+                    normed_kps[j][-1] = box_height[j]/box_width[j]
                     for i in range(17):
                         normed_kps[j][i*2] = (det[j][6+i*3] - det[j][0]) / box_width[j]
                         normed_kps[j][i*2+1] = (det[j][7+i*3] - det[j][1]) / box_height[j]
