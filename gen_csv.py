@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
-
+import csv
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
@@ -98,6 +98,7 @@ def detect(opt):
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             if len(det):
                 # Rescale boxes from img_size to im0 size
+                modified_array = []
                 scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
                 scale_coords(img.shape[2:], det[:, 6:], im0.shape, kpt_label=kpt_label, step=3)
 
@@ -109,7 +110,13 @@ def detect(opt):
                     for i in range(17):
                         normed_kps[j][i*2] = (det[j][6+i*3] - det[j][0]) / box_width[j]
                         normed_kps[j][i*2+1] = (det[j][7+i*3] - det[j][1]) / box_height[j]
+                        # normed_kps = [float(i) for i in normed_kps.flatten().tolist()]
+                    modified_array.append(normed_kps[0].tolist() + ["4", "throw"])
+                    # modified_array.extend()
 
+                    with open(opt.csv_path, 'a', newline='') as file:
+                        writer = csv.writer(file)
+                        writer.writerows(modified_array)
                 # Print results
                 for c in det[:, 5].unique():
                     n = (det[:, 5] == c).sum()  # detections per class
@@ -199,6 +206,7 @@ if __name__ == '__main__':
     parser.add_argument('--hide-labels', default=False, action='store_true', help='hide labels')
     parser.add_argument('--hide-conf', default=False, action='store_true', help='hide confidences')
     parser.add_argument('--kpt-label', action='store_true', help='use keypoint labels')
+    parser.add_argument('--csv_path', type=str, help='csv save')
     opt = parser.parse_args()
     print(opt)
     check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
