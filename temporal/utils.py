@@ -30,5 +30,8 @@ class TemporalQueue:
         else:
             return None
 
+    def print_queue(self):
+        print(self.queue)
+
 
 
