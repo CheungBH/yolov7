@@ -19,6 +19,7 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 
 def detect(opt):
+    kps_queue = TemporalQueue(5, 1)
     source, weights, view_img, save_txt, imgsz, save_txt_tidl, kpt_label = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.save_txt_tidl, opt.kpt_label
     device = select_device(opt.device)
 
@@ -31,7 +32,6 @@ def detect(opt):
     # temporal_module = "TCN"
     # model_path = 'exp/TCN/model.pth'
     # kps_num = 34
-    # kps_queue = TemporalQueue(5, 1)
     # hidden_dims, num_rnn_layers, attention = [64, 2, False]
     # model = TemporalSequenceModel(num_classes=n_classes, input_dim=kps_num, hidden_dims=hidden_dims,
     #                               num_rnn_layers=num_rnn_layers, attention=attention,
