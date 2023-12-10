@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 
 from temporal.utils import TemporalQueue
+from temporal.model_1d import TemporalSequenceModel
 import cv2
 import numpy as np
 import torch
@@ -18,8 +19,27 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 
 def detect(opt):
-    kps_queue = TemporalQueue(5, 1)
     source, weights, view_img, save_txt, imgsz, save_txt_tidl, kpt_label = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.save_txt_tidl, opt.kpt_label
+    device = select_device(opt.device)
+
+    # temporal_label = "/media/hkuit164/Backup/xjl/20231207_kpsVideo/ml_train/models/label"
+    # with open(temporal_label, 'r') as file:
+    #     temporal_classes = file.readlines()
+    #
+    # n_classes = len(temporal_classes)
+    #
+    # temporal_module = "TCN"
+    # model_path = 'exp/TCN/model.pth'
+    # kps_num = 34
+    # kps_queue = TemporalQueue(5, 1)
+    # hidden_dims, num_rnn_layers, attention = [64, 2, False]
+    # model = TemporalSequenceModel(num_classes=n_classes, input_dim=kps_num, hidden_dims=hidden_dims,
+    #                               num_rnn_layers=num_rnn_layers, attention=attention,
+    #                               temporal_module=temporal_module)
+    # model.load_state_dict(torch.load(model_path))
+    # model.to(device)
+    # model.eval()
+    
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
         ('rtsp://', 'rtmp://', 'http://', 'https://'))
@@ -30,7 +50,6 @@ def detect(opt):
 
     # Initialize
     set_logging()
-    device = select_device(opt.device)
     half = device.type != 'cpu' and not save_txt_tidl  # half precision only supported on CUDA
 
     # Load model
