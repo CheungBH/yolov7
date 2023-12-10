@@ -5,3 +5,4 @@ datasets
 *.pt
 runs
 .idea/
+result.json
