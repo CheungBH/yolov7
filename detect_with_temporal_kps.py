@@ -138,6 +138,11 @@ def detect(opt):
                 kps = kps_queue.get_data()
                 kps_queue.print_queue()
                 actions = ["normal" for _ in det]
+                # if kps is not None:
+                #     kps = torch.tensor(kps).unsqueeze(0).to(device)
+                #     outputs = model(kps)
+                #     pred = outputs.data.max(1)[1]
+                #     actions = [names[i] for i in pred]
 
                 # Print results
                 for c in det[:, 5].unique():

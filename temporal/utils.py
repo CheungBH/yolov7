@@ -25,6 +25,7 @@ class TemporalQueue:
             self.feed = False
 
     def get_data(self):
+        self.determine_feed()
         if self.feed:
             return self.queue
         else:
