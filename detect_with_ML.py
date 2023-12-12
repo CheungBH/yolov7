@@ -17,7 +17,7 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import colors, plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
-COLORS = [(0, 255, 0), (0, 0, 255), (255, 0, 0), (0, 255, 205), (255, 0, 255)]
+COLORS = [(0, 155, 0), (0, 0, 155), (155, 0, 0), (0, 155, 205), (155, 0, 155)]
 
 
 def detect(opt):
@@ -133,7 +133,9 @@ def detect(opt):
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
                 # Write results
-                for det_index, (*xyxy, conf, cls) in enumerate(reversed(det[:,:6])):
+                # for det_index, (*xyxy, conf, cls) in enumerate(reversed(det[:,:6])):
+                for det_index, (*xyxy, conf, cls) in enumerate(det[:,:6]):
+
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
@@ -143,6 +145,7 @@ def detect(opt):
                     if save_img or opt.save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class
                         label = None if opt.hide_labels else (names[c] if opt.hide_conf else f'{names[c]} {conf:.2f}')
+
                         label += f' {actions[det_index]}'
                         kpts = det[det_index, 6:]
                         plot_one_box(xyxy, im0, label=label, color=COLORS[int(predict_nums[det_index])], line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
@@ -193,7 +196,7 @@ def detect(opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='weights/yolov7-w6-pose.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str, default="1", help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', nargs= '+', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
