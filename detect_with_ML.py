@@ -17,20 +17,37 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import colors, plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
-COLORS = [(0, 155, 0), (0, 0, 155), (155, 0, 0), (0, 155, 205), (155, 0, 155)]
+COLORS = [(0, 155, 0), (0, 0, 155), (155, 0, 0), (0, 155, 205), (155, 0, 155), (255, 255, 255)]
+
+
+class ConfidenceFilter:
+    def __init__(self, conf=0.2, max_dis=3):
+        self.conf = conf
+        self.max_dis = max_dis
+
+    def filter(self, conf):
+        count = 0
+        for c in conf:
+            if c < self.conf:
+                count += 1
+        return True if count < self.max_dis else False
 
 
 def detect(opt):
-    ML_path = "/media/hkuit164/Backup/xjl/20231207_kpsVideo/ml_train/models_aug/knn_model.joblib"
+    ML_path = "/media/hkuit164/Backup/xjl/20231207_kpsVideo/ml_train_4/models_aug_nobox/knn_model.joblib"
     ML_label = "/media/hkuit164/Backup/xjl/20231207_kpsVideo/ml_train/models/label"
     with open(ML_label, 'r') as file:
         ML_classes = file.readlines()
     joblib_model = joblib.load(ML_path)
+    ML_classes.append("Incomplete")
 
     source, weights, view_img, save_txt, imgsz, save_txt_tidl, kpt_label = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.save_txt_tidl, opt.kpt_label
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
         ('rtsp://', 'rtmp://', 'http://', 'https://'))
+
+    ArmsFilter = ConfidenceFilter(0.5, 3)
+    LegsFilter = ConfidenceFilter(0.5, 3)
 
     # Directories
     save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)  # increment run
@@ -111,13 +128,15 @@ def detect(opt):
                 scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
                 scale_coords(img.shape[2:], det[:, 6:], im0.shape, kpt_label=kpt_label, step=3)
 
-                normed_kps = np.zeros((det.shape[0], 17*2+1))
-                # normed_kps = np.zeros((det.shape[0], 17*2))
+                # normed_kps = np.zeros((det.shape[0], 17*2+1))
+                normed_kps = np.zeros((det.shape[0], 17*2))
+
+                print("Min confidence is {}".format(min([item.tolist() for (idx, item) in enumerate(det[0][6:]) if (idx+1)%3==0])))
 
                 box_height = det[:, 3] - det[:, 1]
                 box_width = det[:, 2] - det[:, 0]
                 for j in range(det.shape[0]):
-                    normed_kps[j][-1] = box_height[j]/box_width[j]
+                    # normed_kps[j][-1] = box_height[j]/box_width[j]
                     for i in range(17):
                         normed_kps[j][i*2] = ((det[j][6+i*3] - det[j][0]) / box_width[j])
                         normed_kps[j][i*2+1] = ((det[j][7+i*3] - det[j][1]) / box_height[j])
@@ -126,6 +145,18 @@ def detect(opt):
                 # predict_action = ML_classes[int(predict_num)][:-1]
                 actions = [ML_classes[int(n)][:-1] for n in predict_nums]
                 print(actions)
+
+                for idx_d, d in enumerate(det):
+                    kps_conf = [item.tolist() for (idx, item) in enumerate(d[6:]) if (idx+1)%3==0]
+                    arms_conf = kps_conf[5:11]
+                    legs_conf = kps_conf[11:]
+
+                    arms_valid = ArmsFilter.filter(arms_conf)
+                    legs_valid = LegsFilter.filter(legs_conf)
+                    if not (arms_valid and legs_valid):
+                        predict_nums[idx_d] = len(ML_classes)-1
+                        actions[idx_d] = ML_classes[-1]
+
 
                 # Print results
                 for c in det[:, 5].unique():
