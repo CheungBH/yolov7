@@ -1,7 +1,7 @@
 
 
 class TemporalQueue:
-    def __init__(self, queue_size=5, queue_interval=2):
+    def __init__(self, queue_size=5, queue_interval=1):
         self.queue = []
         self.queue_size = queue_size
         self.queue_interval = queue_interval

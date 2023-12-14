@@ -8,8 +8,7 @@ import cv2
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-import joblib
-
+from torch.nn import Softmax
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
@@ -17,28 +16,29 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import colors, plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
+COLORS = [(0, 155, 0), (0, 0, 155), (155, 0, 0), (0, 155, 205), (155, 0, 155)]
 
 def detect(opt):
     kps_queue = TemporalQueue(5, 1)
     source, weights, view_img, save_txt, imgsz, save_txt_tidl, kpt_label = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.save_txt_tidl, opt.kpt_label
     device = select_device(opt.device)
 
-    # temporal_label = "/media/hkuit164/Backup/xjl/20231207_kpsVideo/ml_train/models/label"
-    # with open(temporal_label, 'r') as file:
-    #     temporal_classes = file.readlines()
-    #
-    # n_classes = len(temporal_classes)
-    #
-    # temporal_module = "TCN"
-    # model_path = 'exp/TCN/model.pth'
-    # kps_num = 34
-    # hidden_dims, num_rnn_layers, attention = [64, 2, False]
-    # model = TemporalSequenceModel(num_classes=n_classes, input_dim=kps_num, hidden_dims=hidden_dims,
-    #                               num_rnn_layers=num_rnn_layers, attention=attention,
-    #                               temporal_module=temporal_module)
-    # model.load_state_dict(torch.load(model_path))
-    # model.to(device)
-    # model.eval()
+    temporal_label = "/media/hkuit164/Backup/xjl/20231207_kpsVideo/temp_data/train_input/cls.txt"
+    with open(temporal_label, 'r') as file:
+        temporal_classes = file.readlines()
+
+    n_classes = len(temporal_classes)
+
+    temporal_module = "BiGRU"
+    model_path = '/media/hkuit164/Backup/TemporalClassifier/exp/20231213_kps1/BiGRU_lr0.001/model.pth'
+    kps_num = 34
+    hidden_dims, num_rnn_layers, attention = [64, 2, False]
+    temporal_model = TemporalSequenceModel(num_classes=n_classes, input_dim=kps_num, hidden_dims=hidden_dims,
+                                  num_rnn_layers=num_rnn_layers, attention=attention,
+                                  temporal_module=temporal_module)
+    temporal_model.load_state_dict(torch.load(model_path))
+    temporal_model.to(device)
+    temporal_model.eval()
     
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
@@ -118,6 +118,7 @@ def detect(opt):
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
 
             actions = []
+            temporal_pred = [0]
             if len(det):
                 # Rescale boxes from img_size to im0 size
                 scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
@@ -136,13 +137,15 @@ def detect(opt):
 
                 kps_queue.update(normed_kps.tolist()[0])
                 kps = kps_queue.get_data()
-                kps_queue.print_queue()
+                # kps_queue.print_queue()
                 actions = ["normal" for _ in det]
-                # if kps is not None:
-                #     kps = torch.tensor(kps).unsqueeze(0).to(device)
-                #     outputs = model(kps)
-                #     pred = outputs.data.max(1)[1]
-                #     actions = [names[i] for i in pred]
+                if kps is not None:
+                    kps = torch.tensor(kps).unsqueeze(0).to(device)
+                    outputs = temporal_model(kps)
+                    # print(Softmax(outputs))
+                    temporal_pred = outputs.data.max(1)[1]
+                    actions = [temporal_classes[i][:-1] for i in temporal_pred]
+                    print(actions)
 
                 # Print results
                 for c in det[:, 5].unique():
@@ -162,7 +165,7 @@ def detect(opt):
                         label = None if opt.hide_labels else (names[c] if opt.hide_conf else f'{names[c]} {conf:.2f}')
                         label += f' {actions[det_index]}'
                         kpts = det[det_index, 6:]
-                        plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
+                        plot_one_box(xyxy, im0, label=label, color=COLORS[int(temporal_pred[det_index])], line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
                         if opt.save_crop:
                             save_one_box(xyxy, im0s, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
 
@@ -211,7 +214,7 @@ def detect(opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='weights/yolov7-w6-pose.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str, default="1", help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', nargs= '+', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
