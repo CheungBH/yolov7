@@ -111,7 +111,11 @@ def detect(opt):
                         normed_kps[j][i*2] = (det[j][6+i*3] - det[j][0]) / box_width[j]
                         normed_kps[j][i*2+1] = (det[j][7+i*3] - det[j][1]) / box_height[j]
                         # normed_kps = [float(i) for i in normed_kps.flatten().tolist()]
-                    modified_array.append(normed_kps[0].tolist() + ["4", "throw"])
+                    if opt.save_crop:
+                        modified_array.append(normed_kps[0].tolist() + [f"{p.stem}_{j}.jpg"])
+                    else:
+                        modified_array.append(normed_kps[0].tolist() + ["4", "throw"])
+
                     # modified_array.extend()
 
                     with open(opt.csv_path, 'a', newline='') as file:
@@ -136,7 +140,7 @@ def detect(opt):
                         kpts = det[det_index, 6:]
                         plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
                         if opt.save_crop:
-                            save_one_box(xyxy, im0s, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
+                            save_one_box(xyxy, im0s, file=save_dir / 'crops' / names[c] / f'{p.stem}_{det_index}.jpg', BGR=True)
 
 
                 if save_txt_tidl:  # Write to file in tidl dump format
