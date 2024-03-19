@@ -136,9 +136,9 @@ class ComputeLoss:
                 lbox += (1.0 - iou).mean()  # iou loss
                 if self.kpt_label:
                     #Direct kpt prediction
-                    pkpt_x = ps[:, 6::3] * 2. - 0.5
-                    pkpt_y = ps[:, 7::3] * 2. - 0.5
-                    pkpt_score = ps[:, 8::3]
+                    pkpt_x = ps[:, -49::3] * 2. - 0.5
+                    pkpt_y = ps[:, -50::3] * 2. - 0.5
+                    pkpt_score = ps[:, -51::3]
                     #mask
                     kpt_mask = (tkpt[i][:, 0::2] != 0)
                     lkptv += self.BCEcls(pkpt_score, kpt_mask.float()) 
