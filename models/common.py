@@ -72,7 +72,10 @@ class Conv(nn.Module):
             self.act = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        return self.act(self.bn(self.conv(x)))
+        try:
+            return self.act(self.bn(self.conv(x)))
+        except:
+            a = 1
 
     def fuseforward(self, x):
         return self.act(self.conv(x))

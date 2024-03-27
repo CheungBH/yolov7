@@ -521,6 +521,11 @@ if __name__ == '__main__':
     parser.add_argument('--save_period', type=int, default=-1, help='Log model after every "save_period" epoch')
     parser.add_argument('--artifact_alias', type=str, default="latest", help='version of dataset artifact to be used')
     parser.add_argument('--kpt-label', action='store_true', help='use keypoint labels for training')
+    parser.add_argument('--sparsity', type=float, default=0.1, help='pruning percentage')
+    parser.add_argument('--num_epochs_to_prune', type=int, default=4, help='how many times finetune to prune model')
+    parser.add_argument('--prune_norm', type=str, default='L2', help='prune norm, L1 or L2')
+    parser.add_argument('--method', type=str, default=None, help='method to quantify model, static or dynamic')
+    parser.add_argument('--deploy_device', type=str, default='arm')
     opt = parser.parse_args()
 
     # Set DDP variables
