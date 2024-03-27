@@ -343,6 +343,7 @@ class Model(nn.Module):
 
         # Build strides, anchors
         m = self.model[-1]  # Detect()
+        # m.eval()
         if isinstance(m, Detect) or isinstance(m, IDetect) or isinstance(m, IKeypoint):
             s = 256  # 2x min stride
             m.inplace = self.inplace
