@@ -428,6 +428,8 @@ def train(hyp, opt, device, tb_writer=None):
                 torch.save(ckpt, last)
                 if best_fitness == fi:
                     torch.save(ckpt, best)
+                if (epoch + 1) % 10 == 0 and not final_epoch:
+                    torch.save(ckpt, wdir / f'backup_epoch{epoch + 1}.pt')
                 if wandb_logger.wandb:
                     if ((epoch + 1) % opt.save_period == 0 and not final_epoch) and opt.save_period != -1:
                         wandb_logger.log_model(
