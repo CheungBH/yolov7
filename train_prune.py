@@ -88,6 +88,7 @@ def train(hyp, opt, device, tb_writer=None):
             attempt_download(weights)  # download if not found locally
         ckpt = torch.load(weights, map_location=device)  # load checkpoint
         model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
+        model.eval()
         exclude = ['anchor'] if (opt.cfg or hyp.get('anchors')) and not opt.resume else []  # exclude keys
         state_dict = ckpt['model'].float().state_dict()  # to FP32
         state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
@@ -260,7 +261,7 @@ def train(hyp, opt, device, tb_writer=None):
                 f'Using {dataloader.num_workers} dataloader workers\n'
                 f'Logging results to {save_dir}\n'
                 f'Starting training for {epochs} epochs...')
-
+    model.eval()
     yolo_pruner = pruner(model, device, opt)
 
     for idx, epoch in enumerate(range(start_epoch, epochs)):  # epoch ------------------------------------------------------------------
@@ -427,6 +428,8 @@ def train(hyp, opt, device, tb_writer=None):
                 torch.save(ckpt, last)
                 if best_fitness == fi:
                     torch.save(ckpt, best)
+                if (epoch + 1) % 10 == 0 and not final_epoch:
+                    torch.save(ckpt, wdir / f'backup_epoch{epoch + 1}.pt')
                 if wandb_logger.wandb:
                     if ((epoch + 1) % opt.save_period == 0 and not final_epoch) and opt.save_period != -1:
                         wandb_logger.log_model(
@@ -521,6 +524,11 @@ if __name__ == '__main__':
     parser.add_argument('--save_period', type=int, default=-1, help='Log model after every "save_period" epoch')
     parser.add_argument('--artifact_alias', type=str, default="latest", help='version of dataset artifact to be used')
     parser.add_argument('--kpt-label', action='store_true', help='use keypoint labels for training')
+    parser.add_argument('--sparsity', type=float, default=0.1, help='pruning percentage')
+    parser.add_argument('--num_epochs_to_prune', type=int, default=4, help='how many times finetune to prune model')
+    parser.add_argument('--prune_norm', type=str, default='L2', help='prune norm, L1 or L2')
+    parser.add_argument('--method', type=str, default=None, help='method to quantify model, static or dynamic')
+    parser.add_argument('--deploy_device', type=str, default='arm')
     opt = parser.parse_args()
 
     # Set DDP variables

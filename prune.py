@@ -1,20 +1,23 @@
 import time
 import torch
 import torch_pruning as tp
-from models.yolo import Detect, IDetect
+from models.yolo import Detect, IDetect, IKeypoint
 from models.common import ImplicitA, ImplicitM
+import torch.nn as nn
 
 
 class pruner:
     def __init__(self, model, device, opt):
         model.eval()
-        example_inputs = torch.randn(1, 3, 224, 224).to(device)
+        example_inputs = torch.randn(1, 3, 640, 640).to(device)
         imp = tp.importance.MagnitudeImportance(p=2 if opt.prune_norm == 'L2' else 1)  # L2 norm pruning
 
         ignored_layers = []
         for m in model.modules():
-            if isinstance(m, (Detect, IDetect)):
+            if isinstance(m, (Detect, IDetect, IKeypoint)):
                 ignored_layers.append(m.m)
+            elif isinstance(m, nn.Conv2d) and m.out_channels == 153:
+                ignored_layers.append(m)
         unwrapped_parameters = []
         for m in model.modules():
             if isinstance(m, (ImplicitA, ImplicitM)):
@@ -38,7 +41,7 @@ class pruner:
     def step(self, model, device):
         self.count += 1
 
-        example_inputs = torch.randn(1, 3, 224, 224).to(device)
+        example_inputs = torch.randn(1, 3, 640, 640).to(device)
         base_macs, base_nparams = tp.utils.count_ops_and_params(model, example_inputs)
 
         self.pruner.step()
