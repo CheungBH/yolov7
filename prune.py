@@ -24,16 +24,39 @@ class pruner:
                 unwrapped_parameters.append((m.implicit, 1))  # pruning 1st dimension of implicit matrix
 
         iterative_steps = opt.epochs // opt.num_epochs_to_prune  # progressive pruning
-        self.pruner = tp.pruner.MagnitudePruner(
-            model,
-            example_inputs,
-            importance=imp,
-            iterative_steps=iterative_steps,
-            ch_sparsity=opt.sparsity,
-            # remove 50% channels, ResNet18 = {64, 128, 256, 512} => ResNet18_Half = {32, 64, 128, 256}
-            ignored_layers=ignored_layers,
-            unwrapped_parameters=unwrapped_parameters
-        )
+        if opt.prune_method == "magnitude":
+            self.pruner = tp.pruner.MagnitudePruner(
+                model,
+                example_inputs,
+                importance=imp,
+                iterative_steps=iterative_steps,
+                ch_sparsity=opt.sparsity,
+                ignored_layers=ignored_layers,
+                global_pruning=True,
+                unwrapped_parameters=unwrapped_parameters
+            )
+        elif opt.prune_method == "bn_scale":
+            self.pruner = tp.pruner.BNScalePruner(
+                model,
+                example_inputs,
+                importance=imp,
+                iterative_steps=iterative_steps,
+                ch_sparsity=opt.sparsity,
+                ignored_layers=ignored_layers,
+                global_pruning=True,
+                unwrapped_parameters=unwrapped_parameters
+            )
+        else:
+            raise NotImplementedError("Pruning method not implemented")
+        # self.pruner = tp.pruner.MagnitudePruner(
+        #     model,
+        #     example_inputs,
+        #     importance=imp,
+        #     iterative_steps=iterative_steps,
+        #     ch_sparsity=opt.sparsity,
+        #     ignored_layers=ignored_layers,
+        #     unwrapped_parameters=unwrapped_parameters
+        # )
         self.sparsity = opt.sparsity
         self.num_steps = iterative_steps
         self.count = 0

@@ -528,6 +528,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs_to_prune', type=int, default=4, help='how many times finetune to prune model')
     parser.add_argument('--prune_norm', type=str, default='L2', help='prune norm, L1 or L2')
     parser.add_argument('--method', type=str, default=None, help='method to quantify model, static or dynamic')
+    parser.add_argument('--prune_method', type=str, default="magnitude", help='prune method, magnitude or bn_scale')
     parser.add_argument('--deploy_device', type=str, default='arm')
     opt = parser.parse_args()
 
