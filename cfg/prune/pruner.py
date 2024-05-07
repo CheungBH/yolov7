@@ -47,7 +47,7 @@ class pruner:
                 example_inputs,
                 importance=imp,
                 iterative_steps=iterative_steps,
-                ch_sparsity=opt.prun_ratio,
+                ch_sparsity=opt.prune_ratio,
                 ignored_layers=ignored_layers,
                 global_pruning=True,
             )
@@ -59,7 +59,7 @@ class pruner:
                 example_inputs,
                 importance=imp,
                 iterative_steps=iterative_steps,
-                ch_sparsity=opt.prun_ratio,
+                ch_sparsity=opt.prune_ratio,
                 ignored_layers=ignored_layers,
                 global_pruning=True,
             )
@@ -71,14 +71,14 @@ class pruner:
                 example_inputs,
                 importance=imp,
                 iterative_steps=iterative_steps,
-                ch_sparsity=opt.prun_ratio,
+                ch_sparsity=opt.prune_ratio,
                 ignored_layers=ignored_layers,
                 global_pruning=True,
             )
         else:
             raise NotImplementedError("Pruning method not implemented")
 
-        self.sparsity = opt.prun_ratio
+        self.sparsity = opt.prune_ratio
         self.num_steps = iterative_steps
         self.count = 0
 

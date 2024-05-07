@@ -365,9 +365,13 @@ def train(hyp, opt, device, tb_writer=None):
     #                                  trace=True,
     #                                  v5_metric=opt.v5_metric)
 
-    for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
+    for idx, epoch in enumerate(range(start_epoch, epochs)):  # epoch ------------------------------------------------------------------
+        if (idx + 1) % opt.num_epochs_to_prune:
+            yolo_pruner.step(model, device)
+            ema = ModelEMA(model) if rank in [-1, 0] else None
+
         model.train()
-        yolo_pruner.step(model, device)
+
         # Update image weights (optional)
         if opt.image_weights:
             # Generate indices
@@ -624,8 +628,8 @@ if __name__ == '__main__':
     parser.add_argument('--artifact_alias', type=str, default="latest", help='version of dataset artifact to be used')
     parser.add_argument('--freeze', nargs='+', type=int, default=[0], help='Freeze layers: backbone of yolov7=50, first3=0 1 2')
     parser.add_argument('--v5-metric', action='store_true', help='assume maximum recall as 1.0 in AP calculation')
-    parser.add_argument('--prun_ratio', type=float, default=0.6, help='prund away how many netron')
-    parser.add_argument('--num_epochs_to_prune', type=int, default=1),
+    parser.add_argument('--prune_ratio', type=float, default=0.6, help='prund away how many netron')
+    parser.add_argument('--num_epochs_to_prune', type=int, default=10),
     parser.add_argument('--prune_norm', type=str, default="L1", help="L1, L2, fpgm, lamp")
 
     opt = parser.parse_args()
