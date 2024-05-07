@@ -8,6 +8,7 @@ import torch.nn as nn
 class pruner:
     def __init__(self, model, device, opt, img_size=640):
         self.img_size = img_size
+        self.stop_pruning_epoch = opt.epochs
         model.eval()
         example_inputs = torch.randn(1, 3, self.img_size, self.img_size).to(device)
 
@@ -82,7 +83,9 @@ class pruner:
         self.num_steps = iterative_steps
         self.count = 0
 
-    def step(self, model, device):
+    def step(self, model, device, epoch):
+        if epoch > self.stop_pruning_epoch:
+            return
         self.count += 1
 
         example_inputs = torch.randn(1, 3, self.img_size, self.img_size).to(device)

@@ -365,9 +365,10 @@ def train(hyp, opt, device, tb_writer=None):
     #                                  trace=True,
     #                                  v5_metric=opt.v5_metric)
 
-    for idx, epoch in enumerate(range(start_epoch, epochs)):  # epoch ------------------------------------------------------------------
-        if (idx + 1) % opt.num_epochs_to_prune:
-            yolo_pruner.step(model, device)
+    total_epochs = epochs + opt.finetune_epochs
+    for idx, epoch in enumerate(range(start_epoch, total_epochs)):  # epoch ------------------------------------------------------------------
+        if idx % opt.num_epochs_to_prune == 0:
+            yolo_pruner.step(model, device, idx)
             ema = ModelEMA(model) if rank in [-1, 0] else None
 
         model.train()
@@ -630,6 +631,7 @@ if __name__ == '__main__':
     parser.add_argument('--v5-metric', action='store_true', help='assume maximum recall as 1.0 in AP calculation')
     parser.add_argument('--prune_ratio', type=float, default=0.6, help='prund away how many netron')
     parser.add_argument('--num_epochs_to_prune', type=int, default=10),
+    parser.add_argument('--finetune_epochs', type=int, default=50),
     parser.add_argument('--prune_norm', type=str, default="L1", help="L1, L2, fpgm, lamp")
 
     opt = parser.parse_args()
