@@ -91,6 +91,7 @@ def train(hyp, opt, device, tb_writer=None):
         state_dict = ckpt['model'].float().state_dict()  # to FP32
         state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
         model.load_state_dict(state_dict, strict=False)  # load
+        model = attempt_load(opt.weights, map_location=device)
         logger.info('Transferred %g/%g items from %s' % (len(state_dict), len(model.state_dict()), weights))  # report
     else:
         model = Model(opt.cfg, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
@@ -350,6 +351,20 @@ def train(hyp, opt, device, tb_writer=None):
                 f'Logging results to {save_dir}\n'
                 f'Starting training for {epochs} epochs...')
     torch.save(model, wdir / 'init.pt')
+
+    results, maps, times = test.test(data_dict,
+                                     batch_size=batch_size * 2,
+                                     imgsz=imgsz_test,
+                                     model=ema.ema,
+                                     single_cls=opt.single_cls,
+                                     dataloader=testloader,
+                                     save_dir=save_dir,
+                                     wandb_logger=wandb_logger,
+                                     compute_loss=compute_loss,
+                                     is_coco=is_coco,
+                                     trace=True,
+                                     v5_metric=opt.v5_metric)
+
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
         yolo_pruner.step(model, device)
