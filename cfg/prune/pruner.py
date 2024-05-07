@@ -6,9 +6,10 @@ import torch.nn as nn
 
 
 class pruner:
-    def __init__(self, model, device, opt):
+    def __init__(self, model, device, opt, img_size=640):
+        self.img_size = img_size
         model.eval()
-        example_inputs = torch.randn(1, 3, 640, 640).to(device)
+        example_inputs = torch.randn(1, 3, self.img_size, self.img_size).to(device)
 
         if opt.prune_norm == 'L2':
             imp = tp.importance.MagnitudeImportance(p=2)
@@ -84,7 +85,7 @@ class pruner:
     def step(self, model, device):
         self.count += 1
 
-        example_inputs = torch.randn(1, 3, 640, 640).to(device)
+        example_inputs = torch.randn(1, 3, self.img_size, self.img_size).to(device)
         base_macs, base_nparams = tp.utils.count_ops_and_params(model, example_inputs)
 
         self.pruner.step()

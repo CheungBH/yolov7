@@ -7,7 +7,7 @@ import time
 from copy import deepcopy
 from pathlib import Path
 from threading import Thread
-
+import copy
 import numpy as np
 import torch.distributed as dist
 import torch.nn as nn
@@ -34,7 +34,6 @@ from utils.loss import ComputeLoss, ComputeLossOTA
 from utils.plots import plot_images, plot_labels, plot_results, plot_evolution
 from utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, is_parallel
 from utils.wandb_logging.wandb_utils import WandbLogger, check_wandb_resume
-from cfg.prune.pruner import pruner
 
 logger = logging.getLogger(__name__)
 
@@ -100,50 +99,51 @@ def train(hyp, opt, device, tb_writer=None):
     train_path = data_dict['train']
     test_path = data_dict['val']
 
+    # pre_loader = create_dataloader(test_path, opt.img_size[0], batch_size * 2, max(int(model.stride.max()), 32), opt,  # testloader
+    #                                    hyp=hyp, cache=opt.cache_images and not opt.notest, rect=True, rank=-1,
+    #                                    world_size=opt.world_size, workers=opt.workers,
+    #                                    pad=0.5, prefix=colorstr('val: '))[0]
+
     ################################################################################
     # Pruning
-    # import torch_pruning as tp
-    ###################################################
-    # model.eval()
-    # print(model)
-    # # example_inputs = torch.randn(1, 3, 224, 224).to(device)
-    # # imp = tp.importance.MagnitudeImportance(p=2) # L2 norm pruning
-    #
-    # ignored_layers = []
-    # from models.yolo import Detect, IDetect
-    # from models.common import ImplicitA, ImplicitM
-    # for m in model.modules():
-    #     if isinstance(m, (Detect,IDetect)):
-    #         ignored_layers.append(m.m)
-    # unwrapped_parameters = []
-    # for m in model.modules():
-    #     if isinstance(m, (ImplicitA,ImplicitM)):
-    #         unwrapped_parameters.append((m.implicit,1)) # pruning 1st dimension of implicit matrix
-    # example_inputs = torch.randn(1, 3, 224, 224).to(device)
-    # imp = tp.importance.MagnitudeImportance(p=2) # L2 norm pruning
-    #
-    # iterative_steps = 1 # progressive pruning
-    # pruner = tp.pruner.MagnitudePruner(
-    #     model,
-    #     example_inputs,
-    #     importance=imp,
-    #     global_pruning=True,
-    #     iterative_steps=iterative_steps,
-    #     ch_sparsity= opt.prun_ratio, # remove 80% channels, ResNet18 = {64, 128, 256, 512} => ResNet18_Half = {32, 64, 128, 256}
-    #     ignored_layers=ignored_layers,
-    #     unwrapped_parameters=unwrapped_parameters,
-    #     round_to = 8
-    # )
-    # base_macs, base_nparams = tp.utils.count_ops_and_params(model, example_inputs)
-    # pruner.step()
-    #
-    # pruned_macs, pruned_nparams = tp.utils.count_ops_and_params(model, example_inputs)
-    # print(model)
-    # print("Before Pruning: MACs=%f G, #Params=%f G"%(base_macs/1e9, base_nparams/1e9))
-    # print("After Pruning: MACs=%f G, #Params=%f G"%(pruned_macs/1e9, pruned_nparams/1e9))
-    ####################################################################################
+    pretrain_model = copy.deepcopy(model)
+    import torch_pruning as tp
+    model.eval()
+    print(model)
+    example_inputs = torch.randn(1, 3, opt.img_size[0], opt.img_size[0]).to(device)
+    imp = tp.importance.MagnitudeImportance(p=2) # L2 norm pruning
 
-    yolo_pruner = pruner(model, device, opt, img_size=opt.img_size[0])
+    ignored_layers = []
+    from models.yolo import Detect, IDetect
+    from models.common import ImplicitA, ImplicitM
+    for m in model.modules():
+        if isinstance(m, (Detect,IDetect)):
+            ignored_layers.append(m.m)
+    unwrapped_parameters = []
+    for m in model.modules():
+        if isinstance(m, (ImplicitA,ImplicitM)):
+            unwrapped_parameters.append((m.implicit,1)) # pruning 1st dimension of implicit matrix
+
+    iterative_steps = 1 # progressive pruning
+    pruner = tp.pruner.MagnitudePruner(
+        model,
+        example_inputs,
+        importance=imp,
+        global_pruning=True,
+        iterative_steps=iterative_steps,
+        ch_sparsity= opt.prun_ratio, # remove 80% channels, ResNet18 = {64, 128, 256, 512} => ResNet18_Half = {32, 64, 128, 256}
+        ignored_layers=ignored_layers,
+        unwrapped_parameters=unwrapped_parameters,
+        round_to = 8
+    )
+    base_macs, base_nparams = tp.utils.count_ops_and_params(model, example_inputs)
+    pruner.step()
+
+    pruned_macs, pruned_nparams = tp.utils.count_ops_and_params(model, example_inputs)
+    print(model)
+    print("Before Pruning: MACs=%f G, #Params=%f G"%(base_macs/1e9, base_nparams/1e9))
+    print("After Pruning: MACs=%f G, #Params=%f G"%(pruned_macs/1e9, pruned_nparams/1e9))
+    ####################################################################################
 
     # Freeze
     freeze = [f'model.{x}.' for x in (freeze if len(freeze) > 1 else range(freeze[0]))]  # parameter names to freeze (full or partial)
@@ -168,60 +168,60 @@ def train(hyp, opt, device, tb_writer=None):
         elif hasattr(v, 'weight') and isinstance(v.weight, nn.Parameter):
             pg1.append(v.weight)  # apply decay
         if hasattr(v, 'im'):
-            if hasattr(v.im, 'implicit'):           
+            if hasattr(v.im, 'implicit'):
                 pg0.append(v.im.implicit)
             else:
                 for iv in v.im:
                     pg0.append(iv.implicit)
         if hasattr(v, 'imc'):
-            if hasattr(v.imc, 'implicit'):           
+            if hasattr(v.imc, 'implicit'):
                 pg0.append(v.imc.implicit)
             else:
                 for iv in v.imc:
                     pg0.append(iv.implicit)
         if hasattr(v, 'imb'):
-            if hasattr(v.imb, 'implicit'):           
+            if hasattr(v.imb, 'implicit'):
                 pg0.append(v.imb.implicit)
             else:
                 for iv in v.imb:
                     pg0.append(iv.implicit)
         if hasattr(v, 'imo'):
-            if hasattr(v.imo, 'implicit'):           
+            if hasattr(v.imo, 'implicit'):
                 pg0.append(v.imo.implicit)
             else:
                 for iv in v.imo:
                     pg0.append(iv.implicit)
         if hasattr(v, 'ia'):
-            if hasattr(v.ia, 'implicit'):           
+            if hasattr(v.ia, 'implicit'):
                 pg0.append(v.ia.implicit)
             else:
                 for iv in v.ia:
                     pg0.append(iv.implicit)
         if hasattr(v, 'attn'):
-            if hasattr(v.attn, 'logit_scale'):   
+            if hasattr(v.attn, 'logit_scale'):
                 pg0.append(v.attn.logit_scale)
-            if hasattr(v.attn, 'q_bias'):   
+            if hasattr(v.attn, 'q_bias'):
                 pg0.append(v.attn.q_bias)
-            if hasattr(v.attn, 'v_bias'):  
+            if hasattr(v.attn, 'v_bias'):
                 pg0.append(v.attn.v_bias)
-            if hasattr(v.attn, 'relative_position_bias_table'):  
+            if hasattr(v.attn, 'relative_position_bias_table'):
                 pg0.append(v.attn.relative_position_bias_table)
         if hasattr(v, 'rbr_dense'):
-            if hasattr(v.rbr_dense, 'weight_rbr_origin'):  
+            if hasattr(v.rbr_dense, 'weight_rbr_origin'):
                 pg0.append(v.rbr_dense.weight_rbr_origin)
-            if hasattr(v.rbr_dense, 'weight_rbr_avg_conv'): 
+            if hasattr(v.rbr_dense, 'weight_rbr_avg_conv'):
                 pg0.append(v.rbr_dense.weight_rbr_avg_conv)
-            if hasattr(v.rbr_dense, 'weight_rbr_pfir_conv'):  
+            if hasattr(v.rbr_dense, 'weight_rbr_pfir_conv'):
                 pg0.append(v.rbr_dense.weight_rbr_pfir_conv)
-            if hasattr(v.rbr_dense, 'weight_rbr_1x1_kxk_idconv1'): 
+            if hasattr(v.rbr_dense, 'weight_rbr_1x1_kxk_idconv1'):
                 pg0.append(v.rbr_dense.weight_rbr_1x1_kxk_idconv1)
-            if hasattr(v.rbr_dense, 'weight_rbr_1x1_kxk_conv2'):   
+            if hasattr(v.rbr_dense, 'weight_rbr_1x1_kxk_conv2'):
                 pg0.append(v.rbr_dense.weight_rbr_1x1_kxk_conv2)
-            if hasattr(v.rbr_dense, 'weight_rbr_gconv_dw'):   
+            if hasattr(v.rbr_dense, 'weight_rbr_gconv_dw'):
                 pg0.append(v.rbr_dense.weight_rbr_gconv_dw)
-            if hasattr(v.rbr_dense, 'weight_rbr_gconv_pw'):   
+            if hasattr(v.rbr_dense, 'weight_rbr_gconv_pw'):
                 pg0.append(v.rbr_dense.weight_rbr_gconv_pw)
-            if hasattr(v.rbr_dense, 'vector'):   
+            if hasattr(v.rbr_dense, 'vector'):
                 pg0.append(v.rbr_dense.vector)
 
     if opt.adam:
@@ -352,22 +352,29 @@ def train(hyp, opt, device, tb_writer=None):
                 f'Starting training for {epochs} epochs...')
     torch.save(model, wdir / 'init.pt')
 
-    # results, maps, times = test.test(data_dict,
-    #                                  batch_size=batch_size * 2,
-    #                                  imgsz=imgsz_test,
-    #                                  model=ema.ema,
-    #                                  single_cls=opt.single_cls,
-    #                                  dataloader=testloader,
-    #                                  save_dir=save_dir,
-    #                                  wandb_logger=wandb_logger,
-    #                                  compute_loss=compute_loss,
-    #                                  is_coco=is_coco,
-    #                                  trace=True,
-    #                                  v5_metric=opt.v5_metric)
+    pretrain_model.nc = nc  # attach number of classes to model
+    pretrain_model.hyp = hyp  # attach hyperparameters to model
+    pretrain_model.gr = 1.0  # iou loss ratio (obj_loss = 1.0 or iou)
+    pretrain_model.class_weights = labels_to_class_weights(dataset.labels, nc).to(device) * nc  # attach class weights
+    pretrain_model.names = names
+
+    results, maps, times = test.test(data_dict,
+                                     batch_size=batch_size * 2,
+                                     imgsz=imgsz_test,
+                                     model=pretrain_model,
+                                     single_cls=opt.single_cls,
+                                     dataloader=testloader,
+                                     save_dir=save_dir,
+                                     verbose=False,
+                                     plots=False,
+                                     wandb_logger=wandb_logger,
+                                     compute_loss=compute_loss,
+                                     is_coco=is_coco,
+                                     v5_metric=opt.v5_metric)
 
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
-        yolo_pruner.step(model, device)
+
         # Update image weights (optional)
         if opt.image_weights:
             # Generate indices
@@ -589,7 +596,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', type=str, default='yolo7.pt', help='initial weights path')
     parser.add_argument('--cfg', type=str, default='', help='model.yaml path')
-    parser.add_argument('--prune_method', type=str, default='magnitude', help='magnitude, bn_scale, grop_norm')
     parser.add_argument('--data', type=str, default='data/coco.yaml', help='data.yaml path')
     parser.add_argument('--hyp', type=str, default='data/hyp.scratch.p5.yaml', help='hyperparameters path')
     parser.add_argument('--epochs', type=int, default=300)
@@ -624,10 +630,7 @@ if __name__ == '__main__':
     parser.add_argument('--artifact_alias', type=str, default="latest", help='version of dataset artifact to be used')
     parser.add_argument('--freeze', nargs='+', type=int, default=[0], help='Freeze layers: backbone of yolov7=50, first3=0 1 2')
     parser.add_argument('--v5-metric', action='store_true', help='assume maximum recall as 1.0 in AP calculation')
-    parser.add_argument('--prun_ratio', type=float, default=0.6, help='prund away how many netron')
-    parser.add_argument('--num_epochs_to_prune', type=int, default=1),
-    parser.add_argument('--prune_norm', type=str, default="L1", help="L1, L2, fpgm, lamp")
-
+    parser.add_argument('--prun_ratio', type=float, default=0.8, help='prund away how many netron')
     opt = parser.parse_args()
 
     # Set DDP variables
@@ -714,12 +717,12 @@ if __name__ == '__main__':
                 'mixup': (1, 0.0, 1.0),   # image mixup (probability)
                 'copy_paste': (1, 0.0, 1.0),  # segment copy-paste (probability)
                 'paste_in': (1, 0.0, 1.0)}    # segment copy-paste (probability)
-        
+
         with open(opt.hyp, errors='ignore') as f:
             hyp = yaml.safe_load(f)  # load hyps dict
             if 'anchors' not in hyp:  # anchors commented in hyp.yaml
                 hyp['anchors'] = 3
-                
+
         assert opt.local_rank == -1, 'DDP mode not implemented for --evolve'
         opt.notest, opt.nosave = True, True  # only test/save final epoch
         # ei = [isinstance(x, (int, float)) for x in hyp.values()]  # evolvable indices
