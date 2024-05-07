@@ -159,6 +159,8 @@ def test(data,
             labels = targets[targets[:, 0] == si, 1:]
             nl = len(labels)
             tcls = labels[:, 0].tolist() if nl else []  # target class
+            if single_cls:
+                tcls = [0 for _ in tcls]
             path = Path(paths[si])
             seen += 1
 
