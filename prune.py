@@ -7,7 +7,7 @@ import torch.nn as nn
 
 
 class pruner:
-    def __init__(self, model, device, opt):
+    def __init__(self, model, device, opt, one_step=False):
         model.eval()
         example_inputs = torch.randn(1, 3, 640, 640).to(device)
         imp = tp.importance.MagnitudeImportance(p=2 if opt.prune_norm == 'L2' else 1)  # L2 norm pruning
@@ -23,7 +23,7 @@ class pruner:
             if isinstance(m, (ImplicitA, ImplicitM)):
                 unwrapped_parameters.append((m.implicit, 1))  # pruning 1st dimension of implicit matrix
 
-        iterative_steps = opt.epochs // opt.num_epochs_to_prune  # progressive pruning
+        iterative_steps = opt.epochs // opt.num_epochs_to_prune if not one_step else 1
         if opt.prune_method == "magnitude":
             self.pruner = tp.pruner.MagnitudePruner(
                 model,
