@@ -7,7 +7,7 @@ import time
 from copy import deepcopy
 from pathlib import Path
 from threading import Thread
-
+from prune import pruner
 import numpy as np
 import torch.distributed as dist
 import torch.nn as nn
@@ -18,7 +18,7 @@ import torch.utils.data
 import yaml
 from torch.cuda import amp
 from torch.nn.parallel import DistributedDataParallel as DDP
-# from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 import test  # import test.py to get mAP after each epoch
@@ -34,6 +34,8 @@ from utils.loss import ComputeLoss
 from utils.plots import plot_images, plot_labels, plot_results, plot_evolution
 from utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, is_parallel
 from utils.wandb_logging.wandb_utils import WandbLogger, check_wandb_resume
+from models.quant_yolo import dynamic_quant, static_quant
+
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +88,7 @@ def train(hyp, opt, device, tb_writer=None):
             attempt_download(weights)  # download if not found locally
         ckpt = torch.load(weights, map_location=device)  # load checkpoint
         model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
+        model.eval()
         exclude = ['anchor'] if (opt.cfg or hyp.get('anchors')) and not opt.resume else []  # exclude keys
         state_dict = ckpt['model'].float().state_dict()  # to FP32
         state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
@@ -121,13 +124,13 @@ def train(hyp, opt, device, tb_writer=None):
         elif hasattr(v, 'weight') and isinstance(v.weight, nn.Parameter):
             pg1.append(v.weight)  # apply decay
         if hasattr(v, 'im'):
-            if hasattr(v.im, 'implicit'):           
+            if hasattr(v.im, 'implicit'):
                 pg0.append(v.im.implicit)
             else:
                 for iv in v.im:
                     pg0.append(iv.implicit)
         if hasattr(v, 'ia'):
-            if hasattr(v.ia, 'implicit'):           
+            if hasattr(v.ia, 'implicit'):
                 pg0.append(v.ia.implicit)
             else:
                 for iv in v.ia:
@@ -258,7 +261,14 @@ def train(hyp, opt, device, tb_writer=None):
                 f'Using {dataloader.num_workers} dataloader workers\n'
                 f'Logging results to {save_dir}\n'
                 f'Starting training for {epochs} epochs...')
-    for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
+    model.eval()
+    yolo_pruner = pruner(model, device, opt)
+
+    for idx, epoch in enumerate(range(start_epoch, epochs)):  # epoch ------------------------------------------------------------------
+        # if (idx + 1) % opt.num_epochs_to_prune == 0:
+        #     yolo_pruner.step(model, device)
+        #     ema = ModelEMA(model) if rank in [-1, 0] else None
+
         model.train()
 
         # Update image weights (optional)
@@ -323,6 +333,8 @@ def train(hyp, opt, device, tb_writer=None):
 
             # Backward
             scaler.scale(loss).backward()
+            if opt.prune_method != "magnitude":
+                pruner.pruner.regularize(model)  # <== for sparse learning
 
             # Optimize
             if ni % accumulate == 0:
@@ -370,7 +382,7 @@ def train(hyp, opt, device, tb_writer=None):
                                                  batch_size=batch_size * 2,
                                                  imgsz=imgsz_test,
                                                  model=ema.ema,
-                                                 single_cls=True,
+                                                 single_cls=opt.single_cls,
                                                  dataloader=testloader,
                                                  save_dir=save_dir,
                                                  verbose=nc < 50 and final_epoch,
@@ -418,11 +430,42 @@ def train(hyp, opt, device, tb_writer=None):
                 torch.save(ckpt, last)
                 if best_fitness == fi:
                     torch.save(ckpt, best)
+                if (epoch + 1) % 10 == 0 and not final_epoch:
+                    torch.save(ckpt, wdir / f'backup_epoch{epoch + 1}.pt')
                 if wandb_logger.wandb:
                     if ((epoch + 1) % opt.save_period == 0 and not final_epoch) and opt.save_period != -1:
                         wandb_logger.log_model(
                             last.parent, opt, epoch, fi, best_model=best_fitness == fi)
                 del ckpt
+
+    yolo_pruner.step(model, opt.device, 0)
+    results, maps, times = test.test(data_dict,
+                                     batch_size=batch_size * 2,
+                                     imgsz=imgsz_test,
+                                     model=ema.ema,
+                                     single_cls=opt.single_cls,
+                                     dataloader=testloader,
+                                     save_dir=save_dir,
+                                     # verbose=nc < 50 and final_epoch,
+                                     # plots=plots and final_epoch,
+                                     wandb_logger=wandb_logger,
+                                     compute_loss=compute_loss,
+                                     is_coco=is_coco,
+                                     v5_metric=opt.v5_metric)
+    ckpt = {'epoch': -1,
+            'best_fitness': best_fitness,
+            'training_results': results_file.read_text(),
+            'model': deepcopy(model.module if is_parallel(model) else model).half(),
+            'ema': deepcopy(ema.ema).half(),
+            'updates': ema.updates,
+            'optimizer': optimizer.state_dict(),
+            'wandb_id': wandb_logger.wandb_run.id if wandb_logger.wandb else None}
+    torch.save(ckpt, wdir / 'pruned.pt')
+
+    if opt.method == 'dynamic':
+        model = dynamic_quant(model, dtype=torch.qint8, qconfig_spec={nn.Linear})
+    elif opt.method == 'static':
+        model = static_quant(model, dataloader, opt.deploy_device, device)
 
         # end epoch ----------------------------------------------------------------------------------------------------
     # end training
@@ -507,6 +550,12 @@ if __name__ == '__main__':
     parser.add_argument('--save_period', type=int, default=-1, help='Log model after every "save_period" epoch')
     parser.add_argument('--artifact_alias', type=str, default="latest", help='version of dataset artifact to be used')
     parser.add_argument('--kpt-label', action='store_true', help='use keypoint labels for training')
+    parser.add_argument('--prune_ratio', type=float, default=0.1, help='pruning percentage')
+    parser.add_argument('--num_epochs_to_prune', type=int, default=4, help='how many times finetune to prune model')
+    parser.add_argument('--prune_norm', type=str, default='L2', help='prune norm, L1 or L2')
+    parser.add_argument('--method', type=str, default=None, help='method to quantify model, static or dynamic')
+    parser.add_argument('--prune_method', type=str, default="magnitude", help='prune method. [magnitude, bn_scale, group_norm]')
+    parser.add_argument('--deploy_device', type=str, default='arm')
     opt = parser.parse_args()
 
     # Set DDP variables
@@ -558,7 +607,7 @@ if __name__ == '__main__':
         if opt.global_rank in [-1, 0]:
             prefix = colorstr('tensorboard: ')
             logger.info(f"{prefix}Start with 'tensorboard --logdir {opt.project}', view at http://localhost:6006/")
-            # tb_writer = SummaryWriter(opt.save_dir)  # Tensorboard
+            tb_writer = SummaryWriter(opt.save_dir)  # Tensorboard
         train(hyp, opt, device, tb_writer)
 
     # Evolve hyperparameters (optional)

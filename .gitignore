@@ -6,3 +6,5 @@ datasets
 runs
 .idea/
 result.json
+checkpoint/
+videos/

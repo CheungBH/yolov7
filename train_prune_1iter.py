@@ -155,6 +155,8 @@ def train(hyp, opt, device, tb_writer=None):
     scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
     # plot_lr_scheduler(optimizer, scheduler, epochs)
 
+    yolo_pruner = pruner(model, device, opt, one_step=True)
+    yolo_pruner.step(model, device, 0)
     # EMA
     ema = ModelEMA(model) if rank in [-1, 0] else None
 
@@ -262,8 +264,7 @@ def train(hyp, opt, device, tb_writer=None):
                 f'Logging results to {save_dir}\n'
                 f'Starting training for {epochs} epochs...')
     model.eval()
-    yolo_pruner = pruner(model, device, opt, one_step=True)
-    yolo_pruner.step(model, device)
+
 
     for idx, epoch in enumerate(range(start_epoch, epochs)):  # epoch ------------------------------------------------------------------
 

@@ -265,7 +265,7 @@ def train(hyp, opt, device, tb_writer=None):
     yolo_pruner = pruner(model, device, opt)
 
     for idx, epoch in enumerate(range(start_epoch, epochs)):  # epoch ------------------------------------------------------------------
-        if (idx + 1) % opt.num_epochs_to_prune:
+        if (idx + 1) % opt.num_epochs_to_prune == 0:
             yolo_pruner.step(model, device)
             ema = ModelEMA(model) if rank in [-1, 0] else None
 
