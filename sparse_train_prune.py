@@ -545,7 +545,7 @@ def train(hyp, opt, device, tb_writer=None):
 
                 del ckpt
 
-    yolo_pruner.step(model, epoch, 0)
+    yolo_pruner.step(model, opt.device, 0)
     results, maps, times = test.test(data_dict,
                                      batch_size=batch_size * 2,
                                      imgsz=imgsz_test,
@@ -559,7 +559,7 @@ def train(hyp, opt, device, tb_writer=None):
                                      compute_loss=compute_loss,
                                      is_coco=is_coco,
                                      v5_metric=opt.v5_metric)
-    ckpt = {'epoch': epoch,
+    ckpt = {'epoch': -1,
             'best_fitness': best_fitness,
             'training_results': results_file.read_text(),
             'model': deepcopy(model.module if is_parallel(model) else model).half(),
