@@ -11,17 +11,26 @@ class pruner:
         self.stop_pruning_epoch = opt.epochs
         model.eval()
         example_inputs = torch.randn(1, 3, self.img_size, self.img_size).to(device)
-
-        if opt.prune_norm == 'L2':
-            imp = tp.importance.MagnitudeImportance(p=2)
-        elif opt.prune_norm == 'L1':
-            imp = tp.importance.MagnitudeImportance(p=1)
-        elif opt.prune_norm == 'fpgm':
-            imp = tp.importance.FPGMImportance(p=2)
-        elif opt.prune_norm == 'lamp':
-            imp = tp.importance.LAMPImportance(p=2)
+        if opt.prune_method == "bn_scale":
+            iterative_steps = 1
+            imp = tp.importance.BNScaleImportance()
+        elif opt.prune_method == "group_norm":
+            iterative_steps = 1
+            imp = tp.importance.GroupNormImportance(p=2)
+        elif opt.prune_method == "magnitude":
+            iterative_steps = opt.epochs // opt.num_epochs_to_prune  # progressive pruning
+            if opt.prune_norm == 'L2':
+                imp = tp.importance.MagnitudeImportance(p=2)
+            elif opt.prune_norm == 'L1':
+                imp = tp.importance.MagnitudeImportance(p=1)
+            elif opt.prune_norm == 'fpgm':
+                imp = tp.importance.FPGMImportance(p=2)
+            elif opt.prune_norm == 'lamp':
+                imp = tp.importance.LAMPImportance(p=2)
+            else:
+                raise NotImplementedError("Pruning norm not implemented")
         else:
-            raise NotImplementedError("Pruning norm not implemented")
+            raise NotImplementedError("Pruning method not implemented")
 
         ignored_layers = []
         for m in model.modules():
@@ -32,7 +41,6 @@ class pruner:
             if isinstance(m, (ImplicitA, ImplicitM)):
                 unwrapped_parameters.append((m.implicit, 1))  # pruning 1st dimension of implicit matrix
 
-        iterative_steps = opt.epochs // opt.num_epochs_to_prune  # progressive pruning
         if opt.prune_method == "magnitude":
             sparsity_learning = False
             # if opt.prune_norm == 'L2':
@@ -51,6 +59,8 @@ class pruner:
                 ch_sparsity=opt.prune_ratio,
                 ignored_layers=ignored_layers,
                 global_pruning=True,
+                unwrapped_parameters=unwrapped_parameters,
+                round_to=8,
             )
         elif opt.prune_method == "bn_scale":
             sparsity_learning = True
@@ -63,6 +73,8 @@ class pruner:
                 ch_sparsity=opt.prune_ratio,
                 ignored_layers=ignored_layers,
                 global_pruning=True,
+                unwrapped_parameters=unwrapped_parameters,
+                round_to=8,
             )
         elif opt.prune_method == "group_norm":
             sparsity_learning = False
@@ -75,6 +87,8 @@ class pruner:
                 ch_sparsity=opt.prune_ratio,
                 ignored_layers=ignored_layers,
                 global_pruning=True,
+                unwrapped_parameters=unwrapped_parameters,
+                round_to=8,
             )
         else:
             raise NotImplementedError("Pruning method not implemented")
@@ -84,6 +98,7 @@ class pruner:
         self.count = 0
 
     def step(self, model, device, epoch):
+        model.eval()
         if epoch > self.stop_pruning_epoch:
             return
         self.count += 1
@@ -97,3 +112,7 @@ class pruner:
         print("Pruning Sparsity=%f" % (self.sparsity / self.num_steps * self.count))
         print("Before Pruning: MACs=%f, #Params=%f" % (base_macs, base_nparams))
         print("After Pruning: MACs=%f, #Params=%f" % (pruned_macs, pruned_nparams))
+
+    def regularize(self, model):
+        # if pruner is not None:
+        self.pruner.regularize(model)

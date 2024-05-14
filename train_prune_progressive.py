@@ -632,7 +632,7 @@ if __name__ == '__main__':
     parser.add_argument('--prune_ratio', type=float, default=0.6, help='prund away how many netron')
     parser.add_argument('--num_epochs_to_prune', type=int, default=10),
     parser.add_argument('--finetune_epochs', type=int, default=50),
-    parser.add_argument('--prune_norm', type=str, default="L1", help="L1, L2, fpgm, lamp")
+    parser.add_argument('--prune_norm', type=str, default="L2", help="L1, L2, fpgm, lamp")
     parser.add_argument('--linear_lr', action='store_true', help='linear LR')
 
     opt = parser.parse_args()
