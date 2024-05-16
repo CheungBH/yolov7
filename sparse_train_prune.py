@@ -568,6 +568,16 @@ def train(hyp, opt, device, tb_writer=None):
             'optimizer': optimizer.state_dict(),
             'wandb_id': wandb_logger.wandb_run.id if wandb_logger.wandb else None}
     torch.save(ckpt, wdir / 'pruned.pt')
+    ckpt = {'epoch': -1,
+            'best_fitness': best_fitness,
+            'training_results': results_file.read_text(),
+            'model': deepcopy(model.module if is_parallel(model) else model).half(),
+            # 'ema': deepcopy(ema.ema).half(),
+            'updates': ema.updates,
+            # 'optimizer': optimizer.state_dict(),
+            'wandb_id': wandb_logger.wandb_run.id if wandb_logger.wandb else None}
+    torch.save(ckpt, wdir / 'pruned_simple.pt')
+
 
         # Save last, best and delete
         # end epoch ----------------------------------------------------------------------------------------------------
