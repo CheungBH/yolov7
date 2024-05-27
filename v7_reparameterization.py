@@ -4,6 +4,7 @@ import torch
 from utils.torch_utils import select_device, is_parallel
 import yaml
 
+input_channel = 3
 batch_size = 1
 model = ""
 yaml_file = ""
@@ -18,10 +19,10 @@ device = select_device('0', batch_size=batch_size)
 ckpt = torch.load(model, map_location=device)
 
 # Initialize the model using the deploy configuration
-model = Model(yaml_file, ch=3, nc=class_num).to(device)
+model = Model(yaml_file, ch=input_channel, nc=class_num).to(device)
 
 # Load the deploy configuration YAML
-with open('cfg/deploy/yolov7.yaml') as f:
+with open(yaml_file) as f:
     yml = yaml.load(f, Loader=yaml.SafeLoader)
 anchors = len(yml['anchors'][0]) // 2
 
