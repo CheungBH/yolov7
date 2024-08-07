@@ -7,7 +7,7 @@ import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
 import joblib
-
+import numpy as np
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
@@ -22,9 +22,10 @@ from collections import deque
 
 
 class Queue:
-    def __init__(self, adjacent_length):
+    def __init__(self, adjacent_length, h, w):
         self.max_length = adjacent_length * 2 + 1
         self.queue = deque()
+        self.h, self.w = h, w
 
     def process_item(self, item):
         if len(item) == 0:
@@ -34,9 +35,9 @@ class Queue:
         if len(item) == 0:
             self.queue.append(self.queue[-1])
         elif len(item) == 1:
-            self.queue.append(item)
+            self.queue.append(self.xyxy2center(item[0, :4].tolist()))
         else:
-            self.queue.append(item[0])
+            self.queue.append(self.xyxy2center(item[0, :4].tolist()))
 
         if len(self.queue) > self.max_length:
             self.queue.popleft()
@@ -46,6 +47,10 @@ class Queue:
 
     def get_length(self):
         return len(self.queue)
+
+    def xyxy2center(self, xyxy):
+        x1, y1, x2, y2 = xyxy
+        return ((x1 + x2) / 2)/self.w, ((y1 + y2) / 2)/self.h
 
     def is_empty(self):
         return len(self.queue) == 0
@@ -59,10 +64,9 @@ class Queue:
 
 def detect(save_img=False):
     frame_list = []
-    ML_path = "/media/hkuit164/Backup/xjl/20231207_kpsVideo/ml_train_4/models_aug_nobox/knn_model.joblib"
+    ML_path = "/home/sailhku/Downloads/hard_1.3/landing_inference/GBDT_cfg_model.joblib"
     ML_classes = ["flying", "landing"]
     joblib_model = joblib.load(ML_path)
-    BoxProcessor = Queue(adjacent_length=adjacent_frame)
 
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
@@ -115,6 +119,9 @@ def detect(save_img=False):
     old_img_b = 1
 
     t0 = time.time()
+
+    BoxProcessor = Queue(adjacent_length=adjacent_frame, h=dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT), w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -137,7 +144,7 @@ def detect(save_img=False):
         t2 = time_synchronized()
 
         # Apply NMS
-        pred = [non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)[0].unsqueeze(dim=0)]
+        pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
         t3 = time_synchronized()
 
         # Apply Classifier
@@ -183,13 +190,15 @@ def detect(save_img=False):
             # if view_img:
             frame_list.append(im0)
             if idx >= adjacent_frame:
+                BoxProcessor.enqueue(det)
                 if not BoxProcessor.check_enough():
                     words = "Pending"
                 else:
                     ball_locations = BoxProcessor.get_queue()
-                    words = ML_classes[joblib_model.predict(ball_locations)]
+                    words = ML_classes[int(joblib_model.predict(np.expand_dims(np.array(ball_locations).flatten(), axis=0))[0])]
 
-                cv2.putText(im0, words, (100, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+                color = (0, 255, 0) if words == "landing" else (0, 0, 255)
+                cv2.putText(im0, words, (100, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 3)
 
                 cv2.imshow(str(p), frame_list[0])
                 cv2.waitKey(1)  # 1 millisecond
