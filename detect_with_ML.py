@@ -17,13 +17,14 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 
 
 adjacent_frame = 3
+regression_frame = 3
 
 from collections import deque
 
 
 class Queue:
-    def __init__(self, adjacent_length, h, w):
-        self.max_length = adjacent_length * 2 + 1
+    def __init__(self, max_length, h, w):
+        self.max_length = max_length
         self.queue = deque()
         self.h, self.w = h, w
 
@@ -64,9 +65,14 @@ class Queue:
 
 def detect(save_img=False):
     frame_list = []
-    ML_path = "/home/sailhku/Downloads/hard_1.3/landing_inference/GBDT_cfg_model.joblib"
+    landing_path = "/home/sailhku/Downloads/hard_1.3/landing_inference/GBDT_cfg_model.joblib"
     ML_classes = ["flying", "landing"]
-    joblib_model = joblib.load(ML_path)
+    joblib_model = joblib.load(landing_path)
+
+    x_regression_path = "/home/sailhku/Downloads/RandomForestRegressor_modelx.joblib"
+    x_regressor = joblib.load(x_regression_path)
+    y_regression_path = "/home/sailhku/Downloads/RandomForestRegressor_modely.joblib"
+    y_regressor = joblib.load(y_regression_path)
 
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
@@ -120,7 +126,12 @@ def detect(save_img=False):
 
     t0 = time.time()
 
-    BoxProcessor = Queue(adjacent_length=adjacent_frame, h=dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT), w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    BoxProcessor = Queue(max_length=adjacent_frame * 2 + 1, h=dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
+                         w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    BoxRegProcessor = Queue(max_length=regression_frame, h=dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
+                             w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    # BoxRegProcessorY = Queue(max_length=regression_frame, h=dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
+    #                          w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
         img = torch.from_numpy(img).to(device)
@@ -186,11 +197,25 @@ def detect(save_img=False):
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
 
-            # Stream results
             # if view_img:
             frame_list.append(im0)
+
+            BoxProcessor.enqueue(det)
+            BoxRegProcessor.enqueue(det)
+            # BoxRegProcessor.enqueue(det)
+
+            if BoxRegProcessor.check_enough():
+                ball_locations = BoxRegProcessor.get_queue()
+                ball_x = np.array([b[0] for b in ball_locations])
+                ball_x = np.expand_dims(ball_x, axis=0)
+                ball_y = np.array([b[1] for b in ball_locations])
+                ball_y = np.expand_dims(ball_y, axis=0)
+                ball_next_x = x_regressor.predict(ball_x)
+                ball_next_y = y_regressor.predict(ball_y)
+                cv2.putText(im0, f"Next position: ({ball_next_x[0]:.2f}, {ball_next_y[0]:.2f})", (100, 100),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+
             if idx >= adjacent_frame:
-                BoxProcessor.enqueue(det)
                 if not BoxProcessor.check_enough():
                     words = "Pending"
                 else:
@@ -201,7 +226,7 @@ def detect(save_img=False):
                 cv2.putText(im0, words, (100, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 3)
 
                 cv2.imshow(str(p), frame_list[0])
-                cv2.waitKey(1)  # 1 millisecond
+                cv2.waitKey(0)  # 1 millisecond
                 frame_list = frame_list[1:]
                 # Save results (image with detections)
 
