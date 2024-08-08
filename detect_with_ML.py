@@ -212,8 +212,11 @@ def detect(save_img=False):
                 ball_y = np.expand_dims(ball_y, axis=0)
                 ball_next_x = x_regressor.predict(ball_x)
                 ball_next_y = y_regressor.predict(ball_y)
-                cv2.putText(im0, f"Next position: ({ball_next_x[0]:.2f}, {ball_next_y[0]:.2f})", (100, 100),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+                ball_next_real_x = ball_next_x * dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+                ball_next_real_y = ball_next_y * dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+                cv2.circle(im0, (int(ball_next_real_x[0]), int(ball_next_real_y[0])), 10, (0, 255, 0), -1)
+                # cv2.putText(im0, f"Next position: ({ball_next_x[0]:.2f}, {ball_next_y[0]:.2f})", (100, 100),
+                #             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
 
             if idx >= adjacent_frame:
                 if not BoxProcessor.check_enough():
