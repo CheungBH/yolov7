@@ -225,12 +225,13 @@ def detect(opt):
                         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                     vid_writer.write(im0)
 
+    auto_label(f"{save_dir}/labels", f"{save_dir}/labels.json")
+    print(f'Done. ({time.time() - t0:.3f}s). Json file generated. ')
+
     if save_txt or save_txt_tidl or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt or save_txt_tidl else ''
         print(f"Results saved to {save_dir}{s}")
 
-    auto_label(f"{save_dir}/labels", f"{save_dir}/labels.json")
-    print(f'Done. ({time.time() - t0:.3f}s). Json file generated. ')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
