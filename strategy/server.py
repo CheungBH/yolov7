@@ -3,9 +3,9 @@ from collections import defaultdict
 
 
 class ServeChecker:
-    def __init__(self, serve_side="upper", serve_position="left"):
-        self.actions = {"upper": defaultdict(list), "lower": defaultdict(list)}
-        self.boxes = {"upper": defaultdict(list), "lower": defaultdict(list)}
+    def __init__(self, serve_side="upper", serve_position="right"):
+        self.actions = defaultdict(list)
+        self.boxes = defaultdict(list)
         self.flag = False
         self.recent_times = 10
         self.thresh = 0.5
@@ -48,15 +48,23 @@ class ServeChecker:
                 self.actions["lower"].append(action)
                 self.boxes["lower"].append(box)
 
-        if len(self.actions) > self.recent_times:
+        if len(self.actions[self.serve_side]) > self.recent_times:
             self.check_serve()
 
-    def visualize(self, img, color):
+    def visualize(self, img):
+        h, w = img.shape[:2]
+        cv2.line(img, (self.central_x, 0), (self.central_x, h), (255, 0, 0), 2)
+        cv2.line(img, (0, self.central_y), (w, self.central_y), (255, 0, 0), 2)
+        recent_actions = self.actions[self.serve_side][-self.recent_times:]
+        serve_actions = [False if action == "overhead" else True for action in recent_actions]
+        cv2.putText(img, "Serve: {}/{}".format(sum(serve_actions), self.recent_times), (50, 100),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
         if self.flag:
+            color = (0, 255, 0)
             cv2.putText(img, "Serve", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
         else:
+            color = (0, 0, 255)
             cv2.putText(img, "Wait", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-
 
 class ServeSuccess:
     def __init__(self):
