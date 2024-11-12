@@ -13,11 +13,13 @@ class RallyChecker:
         self.central_y, self.central_x = 360, 540
         self.rally_threshold = 0.5
         self.rally_cnt = 0
-        self.ball_towards = None
+        self.ball_towards = "up"
         self.ball_location = None
         self.recent_ball = 10
         self.max_ball_change_directio_pixel = 2
         self.ball_changing_max_threshold = 0.5
+        self.rally_change_threshold = 3
+        self.ball_towards_status = []
 
     def update_ball_status(self, ball_locations):
         if ball_locations[1] > self.central_y:
@@ -33,15 +35,22 @@ class RallyChecker:
                            y_change for y_change in ball_y_changing]
         if ball_change_over_threshold:
             if sum(ball_change_over_threshold) / len(ball_change_over_threshold) > self.ball_changing_max_threshold:
-                if sum(ball_y_changing) > 0:
-                    ball_towards = "up"
-                    if self.ball_towards == "down":
+                ball_towards = "up" if sum(ball_y_changing) < 0 else "down"
+                self.ball_towards_status.append(ball_towards)
+                recent_towards = self.ball_towards_status[-self.recent_ball:]
+                print(recent_towards)
+                ball_towards_up = [ball_towards == "up" for ball_towards in recent_towards]
+                ball_towards_down = [ball_towards == "down" for ball_towards in recent_towards]
+                if sum(ball_towards_up) > sum(ball_towards_down):
+                    if self.ball_towards != "up":
+                        self.ball_towards = "up"
+                        self.rally_cnt += 1
+                elif sum(ball_towards_down) <= sum(ball_towards_up):
+                    if self.ball_towards != "down":
+                        self.ball_towards = "down"
                         self.rally_cnt += 1
                 else:
-                    ball_towards = "down"
-                    if self.ball_towards == "up":
-                        self.rally_cnt += 1
-                self.ball_towards = ball_towards
+                    pass
 
     def check_rally_status(self):
         if self.rallying:
