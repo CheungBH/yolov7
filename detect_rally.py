@@ -59,7 +59,6 @@ def detect(save_img=False):
     else:
         dataset = LoadImages(source, img_size=imgsz, stride=stride)
 
-    ball_exists, ball_center, humans_box, humans_action = [], [], [], []
     # Get names and colors
     human_names = human_model.module.names if hasattr(human_model, 'module') else human_model.names
     ball_names = ["ball"]
@@ -77,6 +76,7 @@ def detect(save_img=False):
 
     t0 = time.time()
     for path, img, im0s, vid_cap in dataset:
+        humans_box, humans_action = [], []
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -132,10 +132,11 @@ def detect(save_img=False):
                     for *xyxy, conf, cls in reversed(det):
                         if typ == "ball":
                             ball_exist = True
-                            ball_center.append([(xyxy[0] + xyxy[2]) / 2, (xyxy[1] + xyxy[3]) / 2])
+                            ball_center = ([(xyxy[0].tolist() + xyxy[2].tolist()) / 2,
+                                            (xyxy[1].tolist() + xyxy[3].tolist()) / 2])
                         else:
-                            humans_box.append(xyxy)
-                            humans_action.append(cls)
+                            humans_box.append([i.tolist() for i in xyxy])
+                            humans_action.append(name[int(cls)])
                         if save_txt:  # Write to file
                             xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                             line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
@@ -147,10 +148,11 @@ def detect(save_img=False):
                             plot_one_box(xyxy, im0, label=label, color=color[int(cls)], line_thickness=1)
                 else:
                     ball_exist = False
+                    ball_center = (-1, -1)
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
-            rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
-            rally_checker.visualize(im0)
+        rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
+        rally_checker.visualize(im0)
             # Stream results
         if view_img:
             cv2.imshow(str(p), im0)
