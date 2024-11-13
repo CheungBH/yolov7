@@ -3,7 +3,7 @@ import cv2
 
 
 class RallyChecker:
-    def __init__(self):
+    def __init__(self, ball_init_toward="up", ball_last_hit="lower"):
         self.rallying = False
         self.balls_existing = []
         self.ball_locations = []
@@ -13,13 +13,14 @@ class RallyChecker:
         self.central_y, self.central_x = 360, 540
         self.rally_threshold = 0.5
         self.rally_cnt = 0
-        self.ball_towards = "up"
+        self.ball_towards = ball_init_toward
         self.ball_location = None
         self.recent_ball = 10
         self.max_ball_change_directio_pixel = 2
         self.ball_changing_max_threshold = 0.5
         self.rally_change_threshold = 3
         self.ball_towards_status = []
+        self.ball_last_hit = ball_last_hit
 
     def update_ball_status(self, ball_locations):
         if ball_locations[1] > self.central_y:
@@ -44,11 +45,17 @@ class RallyChecker:
                 if sum(ball_towards_up) > sum(ball_towards_down):
                     if self.ball_towards != "up":
                         self.ball_towards = "up"
-                        self.rally_cnt += 1
+                        if self.ball_last_hit == "lower":
+                            self.rally_cnt += 1
+                            self.ball_last_hit = "upper"
                 elif sum(ball_towards_down) <= sum(ball_towards_up):
                     if self.ball_towards != "down":
                         self.ball_towards = "down"
-                        self.rally_cnt += 1
+                        if self.ball_last_hit == "upper":
+                            self.rally_cnt += 1
+                            self.ball_last_hit = "lower"
+
+                        # self.rally_cnt += 1
                 else:
                     pass
 
