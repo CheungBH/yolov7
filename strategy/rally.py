@@ -11,7 +11,10 @@ class RallyChecker:
         self.player_actions = []
 
         self.central_y, self.central_x = 280, 540
+        self.middle_upper_y, self.middle_lower_y = 420, 140
         self.max_no_return_duration = 30
+        self.down_net_duration = 30
+        self.down_net_threshold = 0.8
 
         self.rally_threshold = 0.5
         self.rally_cnt = 0
@@ -24,6 +27,7 @@ class RallyChecker:
         self.ball_towards_status = []
         self.ball_position = ball_last_hit
         self.ball_positions = []
+        self.end_situation = "Not ending"
 
     def check_status(self, status, key):
         state_ls = [i == key for i in status]
@@ -71,6 +75,17 @@ class RallyChecker:
     def check_end_rally(self):
         if sum(self.balls_existing) / len(self.balls_existing) < self.rally_threshold:
             self.rallying = False
+            self.end_situation = "Out bound"
+        else:
+            # Check the ball in the middle area
+            cnt_chosen = min(len(self.ball_locations), self.down_net_duration)
+            balls = self.ball_locations[-cnt_chosen:]
+            # Check the ball in the middle area
+            ball_in_middle = [ball[1] > self.middle_lower_y and ball[1] < self.middle_upper_y for ball in balls]
+            if sum(ball_in_middle) / len(ball_in_middle) > self.down_net_threshold:
+                self.rallying = False
+                self.end_situation = "Down net"
+
 
     def process(self, ball_appears, ball_locations, player_box, player_action):
         self.balls_existing.append(ball_appears)
@@ -90,6 +105,8 @@ class RallyChecker:
         h, w = img.shape[:2]
         cv2.line(img, (self.central_x, 0), (self.central_x, h), (255, 0, 0), 2)
         cv2.line(img, (0, self.central_y), (w, self.central_y), (255, 0, 0), 2)
+        cv2.line(img, (0, self.middle_lower_y), (w, self.middle_lower_y), (0, 255, 0), 2)
+        cv2.line(img, (0, self.middle_upper_y), (w, self.middle_upper_y), (0, 255, 0), 2)
         # Purple
 
         if self.rallying:
@@ -100,4 +117,4 @@ class RallyChecker:
         ball_status = "Ball towards: " + str(self.current_ball_towards) + ", Ball location: " + str(self.ball_position)
         cv2.putText(img, ball_status, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
         cv2.putText(img, "Rally count: " + str(self.rally_cnt), (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-
+        cv2.putText(img, "End situation: " + str(self.end_situation), (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)

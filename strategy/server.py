@@ -3,7 +3,7 @@ from collections import defaultdict
 
 
 class ServeChecker:
-    def __init__(self, serve_side="upper", serve_position="right"):
+    def __init__(self, serve_side="lower", serve_position="right"):
         self.actions = defaultdict(list)
         self.boxes = defaultdict(list)
         self.flag = False
