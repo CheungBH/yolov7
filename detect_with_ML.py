@@ -34,7 +34,10 @@ class Queue:
 
     def enqueue(self, item):
         if len(item) == 0:
-            self.queue.append(self.queue[-1])
+            if self.queue:
+                self.queue.append(self.queue[-1])
+            else:
+                self.queue.append((-1, -1))
         elif len(item) == 1:
             self.queue.append(self.xyxy2center(item[0, :4].tolist()))
         else:
@@ -65,13 +68,13 @@ class Queue:
 
 def detect(save_img=False):
     frame_list = []
-    landing_path = "/home/sailhku/Downloads/hard_1.3/landing_inference/GBDT_cfg_model.joblib"
+    landing_path = "weights/landing.joblib"
     ML_classes = ["flying", "landing"]
     joblib_model = joblib.load(landing_path)
 
-    x_regression_path = "/home/sailhku/Downloads/RandomForestRegressor_modelx.joblib"
+    x_regression_path = "weights/regression_x.joblib"
     x_regressor = joblib.load(x_regression_path)
-    y_regression_path = "/home/sailhku/Downloads/RandomForestRegressor_modely.joblib"
+    y_regression_path = "weights/regression_y.joblib"
     y_regressor = joblib.load(y_regression_path)
 
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
