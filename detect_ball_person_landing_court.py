@@ -93,7 +93,7 @@ def detect(save_img=False):
                 break
         print(mask_points)
 
-    mask_points = []
+    mask_points = [(464, 229), (822, 232), (890, 424), (384, 424)]
     cap = cv2.VideoCapture(source)
     ret, img = cap.read()
 
@@ -256,7 +256,7 @@ def detect(save_img=False):
 
             cv2.imshow("Top View", top_view_frame_list[0])
             top_view_frame_list = top_view_frame_list[1:]
-            cv2.waitKey(1)  # 1 millisecond
+            cv2.waitKey(0)  # 1 millisecond
 
             # Save results (image with detections)
 
