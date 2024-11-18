@@ -23,6 +23,7 @@ def detect(save_img=False):
     regression_frame = 3
     frame_list = []
     top_view_frame_list = []
+    speed_list = []
 
     landing_path = "weights/landing.joblib"
     ML_classes = ["flying", "landing"]
@@ -226,8 +227,9 @@ def detect(save_img=False):
         # top_view.visualize(im0)
             # Stream results
         frame_list.append(im0)
-        player_bv, _, _, _ = top_view.process(court_detector, rally_checker.get_box(), elapsed_time)
+        player_bv, _, speed, _ = top_view.process(court_detector, rally_checker.get_box(), elapsed_time)
         top_view_frame_list.append(cv2.resize(player_bv, (480, 640)))
+        speed_list.append(speed)
 
         BoxProcessor.enqueue(ball_pred[0])
         BoxRegProcessor.enqueue(ball_pred[0])
@@ -260,6 +262,9 @@ def detect(save_img=False):
 
             cv2.imshow("Top View", top_view_frame_list[0])
             top_view_frame_list = top_view_frame_list[1:]
+
+            cv2.imshow("Speed", speed_list[0])
+            speed_list = speed_list[1:]
             cv2.waitKey(0)  # 1 millisecond
 
             # Save results (image with detections)
