@@ -37,12 +37,15 @@ class TopViewProcessor:
             init_time = time.time()
         frame = self.court.copy()
         if players_boxes is not None:
-            assert len(players_boxes) == self.players, "The number of players is not correct!"
+            if len(players_boxes) > self.players:
+                players_boxes = players_boxes[:self.players]
+            # assert len(players_boxes) == self.players, "The number of players is not correct!"
 
             inv_mats = court_detector.game_warp_matrix
 
             for idx, box in enumerate(players_boxes):
-                feet_pos = np.array([(box[0] + (box[2] - box[0]) / 2).item(), box[3].item()]).reshape((1, 1, 2))
+                box = box if isinstance(box, list) else box.item()
+                feet_pos = np.array([(box[0] + (box[2] - box[0]) / 2), box[3]]).reshape((1, 1, 2))
                 feet_court_pos = cv2.perspectiveTransform(feet_pos, inv_mats[-1]).reshape(-1)
                 self.position[idx].append(feet_court_pos)
 

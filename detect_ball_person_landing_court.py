@@ -97,7 +97,8 @@ def detect(save_img=False):
     cap = cv2.VideoCapture(source)
     ret, img = cap.read()
 
-    click_points()
+    if not mask_points:
+        click_points()
     cap.release()
 
     court_detector = CourtDetector(mask_points)
@@ -221,8 +222,8 @@ def detect(save_img=False):
         # top_view.visualize(im0)
             # Stream results
         frame_list.append(im0)
-        player_bv, _, _, _ = top_view.process(court_detector, humans_box, elapsed_time)
-        top_view_frame_list.append(player_bv)
+        player_bv, _, _, _ = top_view.process(court_detector, rally_checker.get_box(), elapsed_time)
+        top_view_frame_list.append(cv2.resize(player_bv, (480, 640)))
 
         BoxProcessor.enqueue(ball_pred[0])
         BoxRegProcessor.enqueue(ball_pred[0])
@@ -255,7 +256,7 @@ def detect(save_img=False):
 
             cv2.imshow("Top View", top_view_frame_list[0])
             top_view_frame_list = top_view_frame_list[1:]
-            cv2.waitKey(0)  # 1 millisecond
+            cv2.waitKey(1)  # 1 millisecond
 
             # Save results (image with detections)
 

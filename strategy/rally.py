@@ -1,4 +1,4 @@
-
+from collections import defaultdict
 import cv2
 
 
@@ -7,8 +7,8 @@ class RallyChecker:
         self.rallying = False
         self.balls_existing = []
         self.ball_locations = []
-        self.player_boxes = []
-        self.player_actions = []
+        self.player_boxes = defaultdict(list)
+        self.player_actions = defaultdict(list)
 
         self.middle_upper_y, self.middle_lower_y = 275, 330
         self.central_y, self.central_x = 300, 640
@@ -92,17 +92,24 @@ class RallyChecker:
                 self.rallying = False
                 self.end_situation = "Down net"
 
+    def get_box(self):
+        return [self.player_boxes[position][-1] for position in ["upper", "lower"]]
 
     def process(self, ball_appears, ball_locations, player_box, player_action):
         self.balls_existing.append(ball_appears)
         self.ball_locations.append(ball_locations)
+        lower_appended, upper_appended = False, False
         for box, action in zip(player_box, player_action):
             if box[1] > self.central_y:
-                self.player_actions.append(action)
-                self.player_boxes.append(box)
+                if not lower_appended:
+                    self.player_actions["lower"].append(action)
+                    self.player_boxes["lower"].append(box)
+                    lower_appended = True
             else:
-                self.player_actions.append(action)
-                self.player_boxes.append(box)
+                if not upper_appended:
+                    self.player_actions["upper"].append(action)
+                    self.player_boxes["upper"].append(box)
+                    upper_appended = True
         if len(self.ball_locations) > self.recent_ball:
             self.check_rally_status()
             self.update_ball_status(ball_locations)
