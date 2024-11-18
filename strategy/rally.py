@@ -3,7 +3,7 @@ import cv2
 
 
 class RallyChecker:
-    def __init__(self, ball_init_toward="up", ball_last_hit="lower"):
+    def __init__(self, ball_init_toward="up", ball_last_hit="lower", central_x=640, central_y=300):
         self.rallying = False
         self.balls_existing = []
         self.ball_locations = []
@@ -11,7 +11,7 @@ class RallyChecker:
         self.player_actions = defaultdict(list)
 
         self.middle_upper_y, self.middle_lower_y = 275, 330
-        self.central_y, self.central_x = 300, 640
+        self.central_y, self.central_x = central_y, central_x
 
         self.max_no_return_duration = 20
         self.down_net_duration = 30
@@ -118,6 +118,8 @@ class RallyChecker:
         h, w = img.shape[:2]
         #cv2.line(img, (self.central_x, 0), (self.central_x, h), (255, 0, 0), 2)
         cv2.line(img, (0, self.central_y), (w, self.central_y), (255, 0, 0), 2)
+        cv2.line(img, (self.central_x, 0), (self.central_x, h), (255, 0, 0), 2)
+
         cv2.line(img, (0, self.middle_lower_y), (w, self.middle_lower_y), (0, 255, 0), 2)
         cv2.line(img, (0, self.middle_upper_y), (w, self.middle_upper_y), (0, 255, 0), 2)
         # Purple
