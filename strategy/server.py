@@ -3,7 +3,7 @@ from collections import defaultdict
 
 
 class ServeChecker:
-    def __init__(self, serve_side="upper", serve_position="right", **kwargs):
+    def __init__(self, serve_side="upper", serve_position="right", central_x=640, central_y=330, **kwargs):
         self.actions = defaultdict(list)
         self.boxes = defaultdict(list)
         self.flag = False
@@ -11,9 +11,12 @@ class ServeChecker:
         self.thresh = 0.8
         self.position_thresh = 0.8
         self.serve_side = serve_side
-        self.central_y, self.central_x = 330, 640
+        self.central_y, self.central_x = central_y, central_x
         self.serve_position = serve_position
         self.correct_position = []
+
+    def update_line(self, central_x, central_y):
+        self.central_x, self.central_y = central_x, central_y
 
     def check_action(self):
         recent_actions = self.actions[self.serve_side][-self.recent_times:]

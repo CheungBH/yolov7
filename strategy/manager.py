@@ -9,8 +9,12 @@ class StrategyManager:
         self.rally_checker = RallyChecker(**kwargs)
 
     def update_line(self, lines):
-        self.rally_checker.update_line(central_y=int((lines[9] + lines[11])//2),
-                                       central_x=int((lines[-12] + lines[-10])//2))
+        if self.check_stage == "serve":
+            self.serve_checker.update_line(central_y=int((lines[9] + lines[11])//2),
+                                           central_x=int((lines[-12] + lines[-10])//2))
+        else:
+            self.rally_checker.update_line(central_y=int((lines[9] + lines[11])//2),
+                                           central_x=int((lines[-12] + lines[-10])//2))
 
     def process(self, ball_exist, ball_center, humans_box, humans_action):
         if self.check_stage == "serve":
