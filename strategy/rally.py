@@ -30,6 +30,9 @@ class RallyChecker:
         self.ball_positions = []
         self.end_situation = "Not ending"
 
+    def update_line(self, central_x, central_y):
+        self.central_x, self.central_y = central_x, central_y
+
     def check_status(self, status, key):
         state_ls = [i == key for i in status]
         ratio = sum(state_ls) / len(state_ls)
