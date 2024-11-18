@@ -3,7 +3,7 @@ from collections import defaultdict
 
 
 class ServeChecker:
-    def __init__(self, serve_side="upper", serve_position="right"):
+    def __init__(self, serve_side="upper", serve_position="right", **kwargs):
         self.actions = defaultdict(list)
         self.boxes = defaultdict(list)
         self.flag = False
@@ -39,16 +39,24 @@ class ServeChecker:
             self.flag = True
 
     def process(self, boxes, actions):
+        lower_appended, upper_appended = False, False
         for box, action in zip(boxes, actions):
             if box[1] < self.central_y:
-                self.actions["upper"].append(action)
-                self.boxes["upper"].append(box)
+                if not lower_appended:
+                    self.actions["lower"].append(action)
+                    self.boxes["lower"].append(box)
+                    lower_appended = True
             else:
-                self.actions["lower"].append(action)
-                self.boxes["lower"].append(box)
+                if not upper_appended:
+                    self.actions["upper"].append(action)
+                    self.boxes["upper"].append(box)
+                    upper_appended = True
 
         if len(self.actions[self.serve_side]) > self.recent_times:
             self.check_serve()
+
+    def get_box(self):
+        return [self.boxes[position][-1] for position in ["upper", "lower"]]
 
     def visualize(self, img):
         h, w = img.shape[:2]

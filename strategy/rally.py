@@ -3,7 +3,7 @@ import cv2
 
 
 class RallyChecker:
-    def __init__(self, ball_init_toward="up", ball_last_hit="lower", central_x=640, central_y=300):
+    def __init__(self, ball_init_toward="up", ball_last_hit="lower", central_x=640, central_y=300, **kwargs):
         self.rallying = False
         self.balls_existing = []
         self.ball_locations = []
