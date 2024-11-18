@@ -141,6 +141,8 @@ def detect(save_img=False):
 
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
         lines = court_detector.track_court(im0s, keep_court=keep_court)
+        rally_checker.update_line(central_y=int((lines[9] + lines[11])//2),
+                                  central_x=int((lines[-12] + lines[-10])//2))
         # lines = court_detector.begin(type=click_type, frame=im0s, mask_points=mask_points) if idx == 0 else \
         #     court_detector.track_court(im0s, keep_court=keep_court)
 
