@@ -33,7 +33,6 @@ def detect(save_img=False):
     y_regression_path = "weights/regression_y.joblib"
     y_regressor = joblib.load(y_regression_path)
 
-    rally_checker = RallyChecker()
     source, view_img, save_txt, imgsz, trace = opt.source, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
     ball_weights, human_weights = opt.ball_weights, opt.human_weights
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
@@ -102,6 +101,10 @@ def detect(save_img=False):
     cap.release()
 
     court_detector = CourtDetector(mask_points)
+    init_lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points)
+    central_y, central_x = (init_lines[9] + init_lines[11])//2, (init_lines[-12] + init_lines[-10])//2
+    rally_checker = RallyChecker(central_x=int(central_x), central_y=int(central_y))
+
     top_view = TopViewProcessor(2)
 
     # Set Dataloader
@@ -135,8 +138,9 @@ def detect(save_img=False):
                              w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
-        lines = court_detector.begin(type=click_type, frame=im0s, mask_points=mask_points) if idx == 0 else \
-            court_detector.track_court(im0s, keep_court=keep_court)
+        lines = court_detector.track_court(im0s, keep_court=keep_court)
+        # lines = court_detector.begin(type=click_type, frame=im0s, mask_points=mask_points) if idx == 0 else \
+        #     court_detector.track_court(im0s, keep_court=keep_court)
 
         humans_box, humans_action = [], []
         img = torch.from_numpy(img).to(device)
