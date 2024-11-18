@@ -10,7 +10,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 class TopViewProcessor:
     def __init__(self, players):
         self.players = players
-        self.court = cv2.cvtColor(cv2.imread('src/court/court_reference.png'), cv2.COLOR_BGR2GRAY)
+        self.court = cv2.cvtColor(cv2.imread('strategy/court/court_reference.png'), cv2.COLOR_BGR2GRAY)
         # court = cv2.line(self.court, lines, 255, 5)
         # v_width, v_height = self.court.shape[::-1]
         self.court = cv2.cvtColor(self.court, cv2.COLOR_GRAY2BGR)

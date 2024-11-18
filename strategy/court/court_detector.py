@@ -119,7 +119,7 @@ class CourtDetector:
       ])
 
       matrix = cv2.getPerspectiveTransform(rect_coords, mask_points)
-      court = cv2.cvtColor(cv2.imread('src/court/court_reference.png'), cv2.COLOR_BGR2GRAY)
+      court = cv2.cvtColor(cv2.imread('strategy/court/court_reference.png'), cv2.COLOR_BGR2GRAY)
       self.v_height, self.v_width = frame.shape[:2]
       transformed_image = cv2.warpPerspective(court, matrix, (frame.shape[1], frame.shape[0]))
       p = np.array(CourtReference().get_important_lines(), dtype=np.float32).reshape((-1, 1, 2))

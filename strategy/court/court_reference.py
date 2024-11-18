@@ -48,7 +48,7 @@ class CourtReference:
         self.court_total_width = self.court_width + self.right_left_border * 2
         self.court_total_height = self.court_height + self.top_bottom_border * 2
 
-        self.court = cv2.cvtColor(cv2.imread('src/court/court_reference.png'), cv2.COLOR_BGR2GRAY)
+        self.court = cv2.cvtColor(cv2.imread('strategy/court/court_reference.png'), cv2.COLOR_BGR2GRAY)
 
     def build_court_reference(self):
         """

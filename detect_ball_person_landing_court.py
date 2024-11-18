@@ -22,14 +22,15 @@ def detect(save_img=False):
     adjacent_frame = 3
     regression_frame = 3
     frame_list = []
+    top_view_frame_list = []
 
-    landing_path = "weights/merged/landing_point.joblib"
+    landing_path = "weights/landing.joblib"
     ML_classes = ["flying", "landing"]
     joblib_model = joblib.load(landing_path)
 
-    x_regression_path = "weights/merged/regressor_x.joblib"
+    x_regression_path = "weights/regression_x.joblib"
     x_regressor = joblib.load(x_regression_path)
-    y_regression_path = "weights/merged/regressor_y.joblib"
+    y_regression_path = "weights/regression_y.joblib"
     y_regressor = joblib.load(y_regression_path)
 
     rally_checker = RallyChecker()
@@ -133,8 +134,8 @@ def detect(save_img=False):
                              w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
-        lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points) if idx == 0 else \
-            court_detector.track_court(img, keep_court=keep_court)
+        lines = court_detector.begin(type=click_type, frame=im0s, mask_points=mask_points) if idx == 0 else \
+            court_detector.track_court(im0s, keep_court=keep_court)
 
         humans_box, humans_action = [], []
         img = torch.from_numpy(img).to(device)
@@ -210,17 +211,21 @@ def detect(save_img=False):
                     ball_exist = False
                     ball_center = (-1, -1)
             # Print time (inference + NMS)
-            print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
+            inference_time = (t2 - t1) * 1000
+            nms_time = (t3 - t2) * 1000
+            elapsed_time = inference_time + nms_time
+            print(f'{s}Done. ({elapsed_time:.3f}ms)')
         rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
         rally_checker.visualize(im0)
         court_detector.visualize(im0, lines)
         # top_view.visualize(im0)
             # Stream results
         frame_list.append(im0)
+        player_bv, _, _, _ = top_view.process(court_detector, humans_box, elapsed_time)
+        top_view_frame_list.append(player_bv)
 
-        BoxProcessor.enqueue(ball_pred)
-        BoxRegProcessor.enqueue(ball_pred)
-        # BoxRegProcessor.enqueue(det)
+        BoxProcessor.enqueue(ball_pred[0])
+        BoxRegProcessor.enqueue(ball_pred[0])
 
         if BoxRegProcessor.check_enough():
             ball_locations = BoxRegProcessor.get_queue()
@@ -246,8 +251,12 @@ def detect(save_img=False):
             cv2.putText(im0, words, (100, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 3)
 
             cv2.imshow(str(p), frame_list[0])
-            cv2.waitKey(0)  # 1 millisecond
             frame_list = frame_list[1:]
+
+            cv2.imshow("Top View", top_view_frame_list[0])
+            top_view_frame_list = top_view_frame_list[1:]
+            cv2.waitKey(0)  # 1 millisecond
+
             # Save results (image with detections)
 
             if save_img:
