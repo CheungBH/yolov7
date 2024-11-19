@@ -28,7 +28,8 @@ class ServeChecker:
 
     def upper_right_serve(self, upper_box, lower_box):
         return True if upper_box[0] > self.central_x and lower_box[0] < self.central_x else False
-
+    def get_ball(self):
+        return None
     def check_position(self):
         for upper_box, lower_box in zip(self.boxes["upper"], self.boxes["lower"]):
             if (self.serve_side == "upper" and self.serve_position == "left") or (self.serve_side == "lower" and self.serve_position == "right"):
@@ -37,14 +38,14 @@ class ServeChecker:
                 self.correct_position.append(self.upper_right_serve(upper_box, lower_box))
         return True if sum(self.correct_position[-self.recent_times:])/self.recent_times > self.position_thresh else False
 
-    def check_serve(self): #??? 没进去
+    def check_serve(self):
         if self.check_action() and self.check_position():
             self.flag = True
 
     def process(self, boxes, actions):
         lower_appended, upper_appended = False, False
         for box, action in zip(boxes, actions):
-            if box[1] < self.central_y:
+            if box[1] > self.central_y:
                 if not lower_appended:
                     self.actions["lower"].append(action)
                     self.boxes["lower"].append(box)

@@ -28,6 +28,7 @@ def calculate_movement(ls):
 def plot_speed(players, max_time=20, use_time=0):
     plt.clf()
     fig, ax = plt.subplots()# = Figure(figsize=(5, 4), dpi=100)
+    plt.ylim(0, 0.1)
     # canvas = FigureCanvasAgg(fig)
     if len(players[0]) < 2:
         array = np.array([[0,0] for _ in range(len(players))])

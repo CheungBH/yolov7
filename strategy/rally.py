@@ -31,7 +31,7 @@ class RallyChecker:
         self.end_situation = "Not ending"
 
     def update_line(self, central_x, central_y):
-        self.central_x, self.central_y = central_x, central_y
+        self.central_x, self.central_y = int(central_x), int(central_y)
 
     def check_status(self, status, key):
         state_ls = [i == key for i in status]
@@ -98,6 +98,12 @@ class RallyChecker:
     def get_box(self):
         return [self.player_boxes[position][-1] for position in ["upper", "lower"]]
 
+    def get_ball(self):
+        if not self.balls_existing[-1]:
+            return None
+        else:
+            return self.ball_locations[-1]
+
     def process(self, ball_appears, ball_locations, player_box, player_action):
         self.balls_existing.append(ball_appears)
         self.ball_locations.append(ball_locations)
@@ -132,7 +138,17 @@ class RallyChecker:
         else:
             cv2.putText(img, "Not Rallying", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         color = (255, 0, 255)
-        ball_status = "Ball towards: " + str(self.current_ball_towards) + ", Ball location: " + str(self.ball_position)
-        cv2.putText(img, ball_status, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-        cv2.putText(img, "Rally count: " + str(self.rally_cnt), (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-        cv2.putText(img, "End situation: " + str(self.end_situation), (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+        #ball_status = "Ball towards: " + str(self.current_ball_towards) + ", Ball location: " + str(self.ball_position)
+        #cv2.putText(img, ball_status, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+        #cv2.putText(img, "Rally count: " + str(self.rally_cnt), (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+        #cv2.putText(img, "End situation: " + str(self.end_situation), (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+        cv2.putText(img, "Rally count: ", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
+        cv2.putText(img, "End situation: ", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,125,125), 2)
+        if self.rally_cnt % 2 == 0:
+            cv2.putText(img, str(self.rally_cnt), (250, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 2)
+        else:
+            cv2.putText(img, str(self.rally_cnt), (250, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
+        if self.end_situation == "Down net" or self.end_situation == "Out bound":
+            cv2.putText(img, str(self.end_situation), (250, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        else:
+            cv2.putText(img,str(self.end_situation), (250, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)

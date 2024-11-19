@@ -26,13 +26,13 @@ def detect(save_img=False):
     speed_list = []
     heatmap_list = []
 
-    landing_path = "weights/landing.joblib"
+    landing_path = "datasets/ball_combine/landing_model/AdaBoost_cfg_model.joblib"
     ML_classes = ["flying", "landing"]
     joblib_model = joblib.load(landing_path)
 
-    x_regression_path = "weights/regression_x.joblib"
+    x_regression_path = "datasets/ball_combine/regression_model/Ridge_modelx.joblib"
     x_regressor = joblib.load(x_regression_path)
-    y_regression_path = "weights/regression_y.joblib"
+    y_regression_path = "datasets/ball_combine/regression_model/Ridge_modely.joblib"
     y_regressor = joblib.load(y_regression_path)
 
     source, view_img, save_txt, imgsz, trace = opt.source, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
@@ -94,7 +94,8 @@ def detect(save_img=False):
                 break
         print(mask_points)
 
-    mask_points = [(464, 229), (822, 232), (890, 424), (384, 424)]
+    mask_points = [(425, 256), (845, 253), (929, 443), (316, 444)]
+
     cap = cv2.VideoCapture(source)
     ret, img = cap.read()
 
@@ -230,7 +231,7 @@ def detect(save_img=False):
         # top_view.visualize(im0)
             # Stream results
         frame_list.append(im0)
-        player_bv, _, speed, heatmap = top_view.process(court_detector, rally_checker.get_box(), elapsed_time)
+        player_bv, _, speed, heatmap = top_view.process(court_detector, rally_checker.get_box(), rally_checker.get_ball(), elapsed_time)
         top_view_frame_list.append(cv2.resize(player_bv, (480, 640)))
         speed_list.append(speed)
         heatmap_list.append(heatmap)

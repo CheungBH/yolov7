@@ -18,7 +18,11 @@ class StrategyManager:
 
     def process(self, ball_exist, ball_center, humans_box, humans_action):
         if self.check_stage == "serve":
-            self.serve_checker.process(humans_box, humans_action)
+            if self.serve_checker.flag:
+                self.check_stage = 'rally'
+                self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
+            else:
+                self.serve_checker.process(humans_box, humans_action)
         else:
             self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
 
@@ -27,6 +31,11 @@ class StrategyManager:
             return self.serve_checker.get_box()
         else:
             return self.rally_checker.get_box()
+    def get_ball(self):
+        if self.check_stage == "serve":
+            return self.serve_checker.get_ball()
+        else:
+            return self.rally_checker.get_ball()
 
     def visualize_strategies(self, frame):
         if self.check_stage == "serve":

@@ -20,12 +20,13 @@ class TopViewProcessor:
         # for i in range(players):
         self.position = [[] for _ in range(players)]
         self.position1, self.position2 = [], []
+        self.ball_position = []
         self.time_elapse = []
 
     def get_stats(self):
-        return self.time_elapse, self.position
+        return self.time_elapse, self.position,self.ball_position
 
-    def process(self, court_detector, players_boxes, use_time, profile=False, vis_graph=True):
+    def process(self, court_detector, players_boxes,ball_box, use_time, profile=False, vis_graph=True):
         self.time_elapse.append(use_time)
         # return self.court, self.court, self.court, self.court
         # img_h, img_w = inp_frame.shape[:2]
@@ -36,18 +37,24 @@ class TopViewProcessor:
         if profile:
             init_time = time.time()
         frame = self.court.copy()
+        if ball_box is not None:
+            inv_mats = court_detector.game_warp_matrix
+            ball_pos = np.array(ball_box).reshape(1,1,2)
+            ball_court_pos = cv2.perspectiveTransform(ball_pos, inv_mats[-1]).reshape(-1)
+            self.ball_position.append(ball_court_pos)
+            frame = cv2.circle(frame,(int(self.ball_position[-1][0]),int(self.ball_position[-1][-1])), 45, (0, 255, 0), -1)
+
         if players_boxes is not None:
             if len(players_boxes) > self.players:
                 players_boxes = players_boxes[:self.players]
             # assert len(players_boxes) == self.players, "The number of players is not correct!"
-
             inv_mats = court_detector.game_warp_matrix
-
             for idx, box in enumerate(players_boxes):
                 box = box if isinstance(box, list) else box.item()
                 feet_pos = np.array([(box[0] + (box[2] - box[0]) / 2), box[3]]).reshape((1, 1, 2))
                 feet_court_pos = cv2.perspectiveTransform(feet_pos, inv_mats[-1]).reshape(-1)
                 self.position[idx].append(feet_court_pos)
+
 
             # self.inv_mats
             # positions_1 = []
@@ -75,6 +82,7 @@ class TopViewProcessor:
                     smoothed[:,0] = signal.savgol_filter(position[:,0], window, 2)
                     smoothed[:,1] = signal.savgol_filter(position[:,1], window, 2)
                     frame = cv2.circle(frame, (int(smoothed[-1][0]), int(smoothed[-1][1])), 45, (0, 0, 255), -1)
+
 
                 # positions_1 = np.array(self.position1)
                 # smoothed_1 = np.zeros_like(positions_1)
@@ -175,6 +183,12 @@ class TopViewProcessor:
         if len(self.position[0]) == 0:
             return [[0, 0], [0, 0]]
         return [self.position[0][-1].tolist(), self.position[1][-1].tolist()]
+    '''
+    def get_ball_location(self):
+        if len(self.ball_position[0]) == 0:
+            return[[0,0]]
+        return [self.ball_position[0][-1].tolist()]
+    '''
 
     def save(self, use_time=-1):
         self.vis_movement("tmp/movement_tmp.png")

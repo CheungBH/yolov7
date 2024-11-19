@@ -18,9 +18,14 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 from detect_with_ML import Queue
 
 
-serve_side, serve_position = "upper", "left"
+serve_side, serve_position = "lower", "right"
 begin_with = "serve"
-ball_init_toward, ball_last_hit = "up", "lower"
+
+
+if serve_side == 'lower':
+    ball_init_toward, ball_last_hit = "up", "lower"
+else:
+    ball_init_toward, ball_last_hit = "down", "upper"
 
 
 def detect(save_img=False):
@@ -31,13 +36,13 @@ def detect(save_img=False):
     speed_list = []
     heatmap_list = []
 
-    landing_path = "weights/landing.joblib"
+    landing_path = "datasets/ball_combine/landing_model/AdaBoost_cfg_model.joblib"
     ML_classes = ["flying", "landing"]
     joblib_model = joblib.load(landing_path)
 
-    x_regression_path = "weights/regression_x.joblib"
+    x_regression_path = "datasets/ball_combine/regression_model/Ridge_modelx.joblib"
     x_regressor = joblib.load(x_regression_path)
-    y_regression_path = "weights/regression_y.joblib"
+    y_regression_path = "datasets/ball_combine/regression_model/Ridge_modely.joblib"
     y_regressor = joblib.load(y_regression_path)
 
     source, view_img, save_txt, imgsz, trace = opt.source, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
@@ -99,7 +104,7 @@ def detect(save_img=False):
                 break
         print(mask_points)
 
-    mask_points = [(464, 229), (822, 232), (890, 424), (384, 424)]
+    mask_points = [(436, 258), (842, 260), (923, 439), (364, 439)]
     cap = cv2.VideoCapture(source)
     ret, img = cap.read()
 
@@ -109,7 +114,7 @@ def detect(save_img=False):
 
     court_detector = CourtDetector(mask_points)
     init_lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points)
-    central_y, central_x = (init_lines[9] + init_lines[11])//2, (init_lines[-12] + init_lines[-10])//2
+    central_y, central_x = int((init_lines[9] + init_lines[11])//2), int((init_lines[-12] + init_lines[-10])//2)
     # rally_checker = RallyChecker(central_x=int(central_x), central_y=int(central_y))
 
     strategies = StrategyManager(check_stage=begin_with, serve_side=serve_side,
@@ -149,7 +154,6 @@ def detect(save_img=False):
 
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
         lines = court_detector.track_court(im0s, keep_court=keep_court)
-        strategies.update_line(lines)
         # lines = court_detector.begin(type=click_type, frame=im0s, mask_points=mask_points) if idx == 0 else \
         #     court_detector.track_court(im0s, keep_court=keep_court)
 
@@ -232,12 +236,13 @@ def detect(save_img=False):
             elapsed_time = inference_time + nms_time
             print(f'{s}Done. ({elapsed_time:.3f}ms)')
         strategies.process(ball_exist, ball_center, humans_box, humans_action)
+        strategies.update_line(lines)
         strategies.visualize_strategies(im0)
         court_detector.visualize(im0, lines)
         # top_view.visualize(im0)
             # Stream results
         frame_list.append(im0)
-        player_bv, _, speed, heatmap = top_view.process(court_detector, strategies.get_box(), elapsed_time)
+        player_bv, _, speed, heatmap = top_view.process(court_detector, strategies.get_box(), strategies.get_ball(),elapsed_time)
         top_view_frame_list.append(cv2.resize(player_bv, (480, 640)))
         speed_list.append(speed)
         heatmap_list.append(heatmap)
