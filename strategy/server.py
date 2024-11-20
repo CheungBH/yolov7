@@ -68,14 +68,14 @@ class ServeChecker:
         cv2.line(img, (0, self.central_y), (w, self.central_y), (255, 0, 0), 2)
         recent_actions = self.actions[self.serve_side][-self.recent_times:]
         serve_actions = [True if action == "overhead" else False for action in recent_actions] #???
-        cv2.putText(img, "Serve: {}/{}".format(sum(serve_actions), self.recent_times), (50, 100),
+        cv2.putText(img, "Serve: {}/{}".format(sum(serve_actions), self.recent_times), (10, 100),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
         if self.flag:
             color = (0, 255, 0)
-            cv2.putText(img, "Serve", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+            cv2.putText(img, "Serve", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
         else:
             color = (0, 0, 255)
-            cv2.putText(img, "Wait", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+            cv2.putText(img, "Wait", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
 
 class ServeSuccess:
     def __init__(self):

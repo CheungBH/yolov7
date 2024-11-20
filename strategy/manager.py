@@ -7,6 +7,7 @@ class StrategyManager:
         self.check_stage = check_stage
         self.serve_checker = ServeChecker(**kwargs)
         self.rally_checker = RallyChecker(**kwargs)
+        self.args = kwargs
 
     def update_line(self, lines):
         if self.check_stage == "serve":
@@ -20,17 +21,24 @@ class StrategyManager:
         if self.check_stage == "serve":
             if self.serve_checker.flag:
                 self.check_stage = 'rally'
+                self.rally_checker = RallyChecker(**self.args)
                 self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
             else:
                 self.serve_checker.process(humans_box, humans_action)
         else:
-            self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
+            if self.rally_checker.end_situation == "Out bound" or self.rally_checker.end_situation == "Down net":
+                self.check_stage = "serve"
+                self.serve_checker = ServeChecker(**self.args)
+                self.serve_checker.process(humans_box, humans_action)
+            else:
+                self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
 
     def get_box(self):
         if self.check_stage == "serve":
             return self.serve_checker.get_box()
         else:
             return self.rally_checker.get_box()
+
     def get_ball(self):
         if self.check_stage == "serve":
             return self.serve_checker.get_ball()

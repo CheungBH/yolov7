@@ -10,7 +10,7 @@ class RallyChecker:
         self.player_boxes = defaultdict(list)
         self.player_actions = defaultdict(list)
 
-        self.middle_upper_y, self.middle_lower_y = 275, 330
+        self.middle_upper_y, self.middle_lower_y = central_y-60, central_y+30
         self.central_y, self.central_x = central_y, central_x
 
         self.max_no_return_duration = 20
@@ -87,13 +87,14 @@ class RallyChecker:
             self.end_situation = "Out bound"
         else:
             # Check the ball in the middle area
-            cnt_chosen = min(len(self.ball_locations), self.down_net_duration)
-            balls = self.ball_locations[-cnt_chosen:]
-            # Check the ball in the middle area
-            ball_in_middle = [ball[1] > self.middle_upper_y and ball[1] < self.middle_lower_y for ball in balls]
-            if sum(ball_in_middle) / len(ball_in_middle) > self.down_net_threshold:
-                self.rallying = False
-                self.end_situation = "Down net"
+            if len(self.ball_locations) > self.down_net_duration:
+                # cnt_chosen = min(len(self.ball_locations), self.down_net_duration)
+                balls = self.ball_locations[-self.down_net_duration:]
+                # Check the ball in the middle area
+                ball_in_middle = [ball[1] > self.middle_upper_y and ball[1] < self.middle_lower_y for ball in balls]
+                if sum(ball_in_middle) / len(ball_in_middle) > self.down_net_threshold:
+                    self.rallying = False
+                    self.end_situation = "Down net"
 
     def get_box(self):
         return [self.player_boxes[position][-1] for position in ["upper", "lower"]]

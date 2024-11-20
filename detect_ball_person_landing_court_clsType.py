@@ -104,7 +104,7 @@ def detect(save_img=False):
                 break
         print(mask_points)
 
-    mask_points = [(436, 258), (842, 260), (923, 439), (364, 439)]
+    mask_points = []
     cap = cv2.VideoCapture(source)
     ret, img = cap.read()
 
@@ -118,8 +118,8 @@ def detect(save_img=False):
     # rally_checker = RallyChecker(central_x=int(central_x), central_y=int(central_y))
 
     strategies = StrategyManager(check_stage=begin_with, serve_side=serve_side,
-                                 serve_position=serve_position,
-                                 central_x=central_x, central_y=central_y)
+                                 serve_position=serve_position, ball_last_hit=ball_last_hit,
+                                 central_x=central_x, central_y=central_y, ball_init_toward=ball_init_toward, )
     top_view = TopViewProcessor(2)
 
     # Set Dataloader
@@ -271,7 +271,7 @@ def detect(save_img=False):
                     int(joblib_model.predict(np.expand_dims(np.array(ball_locations).flatten(), axis=0))[0])]
 
             color = (0, 255, 0) if words == "landing" else (0, 0, 255)
-            cv2.putText(im0, words, (100, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 3)
+            cv2.putText(im0, words, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
 
             cv2.imshow(str(p), frame_list[0])
             frame_list = frame_list[1:]
