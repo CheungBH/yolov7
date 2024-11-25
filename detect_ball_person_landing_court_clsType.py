@@ -2,6 +2,7 @@ import argparse
 import time
 from pathlib import Path
 from strategy.manager import StrategyManager
+from strategy.classifier.image_classifier import ImageClassifier
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
@@ -35,6 +36,11 @@ def detect(save_img=False):
     top_view_frame_list = []
     speed_list = []
     heatmap_list = []
+
+    classifier_path = "weights/highlight/highlight.pth"
+    model_cfg = "/".join(classifier_path.split("/")[:-1]) + "/model_cfg.yaml"
+    label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
+    highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
 
     landing_path = "datasets/ball_combine/landing_model/AdaBoost_cfg_model.joblib"
     ML_classes = ["flying", "landing"]
@@ -153,6 +159,7 @@ def detect(save_img=False):
                              w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
+        classifier_result = highlight_classifier(im0s)
         lines = court_detector.track_court(im0s, keep_court=keep_court)
         # lines = court_detector.begin(type=click_type, frame=im0s, mask_points=mask_points) if idx == 0 else \
         #     court_detector.track_court(im0s, keep_court=keep_court)
@@ -239,6 +246,7 @@ def detect(save_img=False):
         strategies.update_line(lines)
         strategies.visualize_strategies(im0)
         court_detector.visualize(im0, lines)
+        highlight_classifier.visualize(im0)
         # top_view.visualize(im0)
             # Stream results
         frame_list.append(im0)
