@@ -1,5 +1,5 @@
 from .rally import RallyChecker
-from .server import ServeChecker
+from .server_Chris import ServeChecker
 
 
 class StrategyManager:
@@ -8,30 +8,49 @@ class StrategyManager:
         self.serve_checker = ServeChecker(**kwargs)
         self.rally_checker = RallyChecker(**kwargs)
         self.args = kwargs
+        self.previous_position = self.args["serve_position"]
 
     def update_line(self, lines):
         if self.check_stage == "serve":
             self.serve_checker.update_line(central_y=int((lines[9] + lines[11])//2),
                                            central_x=int((lines[-12] + lines[-10])//2))
-        else:
+        elif self.check_stage == "rally":
             self.rally_checker.update_line(central_y=int((lines[9] + lines[11])//2),
                                            central_x=int((lines[-12] + lines[-10])//2))
+        elif self.check_stage == "highlight":
+            self.highlight_update_line(lines)
 
-    def process(self, ball_exist, ball_center, humans_box, humans_action):
+    def process(self, ball_exist, ball_center, humans_box, humans_action,classifier_status, lines):
+        if classifier_status == 'highlight':
+            # if not hasattr(self.serve_checker, "serve_position"):
+            self.check_stage = 'serve'
+            if hasattr(self.serve_checker, "serve_position"):
+                # self.previous_position = self.serve_checker.serve_position
+                self.args["serve_position"] = self.serve_checker.serve_position
+            self.serve_checker = ServeChecker(**self.args)
+            # else:
+            #     self.serve_checker = ServeChecker(**self.args)
+            return
+        self.update_line(lines)
         if self.check_stage == "serve":
             if self.serve_checker.flag:
                 self.check_stage = 'rally'
                 self.rally_checker = RallyChecker(**self.args)
+                self.update_line(lines)
                 self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
             else:
                 self.serve_checker.process(humans_box, humans_action)
         else:
             if self.rally_checker.end_situation == "Out bound" or self.rally_checker.end_situation == "Down net":
                 self.check_stage = "serve"
+                self.previous_position = self.serve_checker.serve_position
+                self.args["serve_position"] = self.previous_position
                 self.serve_checker = ServeChecker(**self.args)
+                self.update_line(lines)
                 self.serve_checker.process(humans_box, humans_action)
             else:
                 self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
+
 
     def get_box(self):
         if self.check_stage == "serve":

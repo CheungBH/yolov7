@@ -19,8 +19,9 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 from detect_with_ML import Queue
 
 
-serve_side, serve_position = "lower", "right"
+serve_side, serve_position = "lower", "left"
 begin_with = "serve"
+mask_points = [(342, 160), (935, 159), (1170, 587), (69, 581)]
 
 
 if serve_side == 'lower':
@@ -37,7 +38,7 @@ def detect(save_img=False):
     speed_list = []
     heatmap_list = []
 
-    classifier_path = "weights/highlight/highlight.pth"
+    classifier_path = "/media/hkuit164/Backup/yolov7/datasets/ball_combine/highlight/highlight.pth"
     model_cfg = "/".join(classifier_path.split("/")[:-1]) + "/model_cfg.yaml"
     label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
     highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
@@ -84,7 +85,9 @@ def detect(save_img=False):
     if half:
         human_model.half()  # to FP16
 
-    click_type = "inner"
+    click_type = "detect"
+    #$keep_court = False
+    #click_type = 'inner'
     keep_court = False
 
     def click_points():
@@ -110,7 +113,7 @@ def detect(save_img=False):
                 break
         print(mask_points)
 
-    mask_points = []
+    #mask_points = []
     cap = cv2.VideoCapture(source)
     ret, img = cap.read()
 
@@ -157,10 +160,31 @@ def detect(save_img=False):
                          w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     BoxRegProcessor = Queue(max_length=regression_frame, h=dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
                              w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-
+    cls_hp=[]
+    play_duration = 3
+    #play_threshold = 0.8
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
         classifier_result = highlight_classifier(im0s)
-        lines = court_detector.track_court(im0s, keep_court=keep_court)
+        cls_hp.append(classifier_result)
+        recent_actions = cls_hp[-play_duration*2:]
+        play_actions = [True if action == "play" else False for action in recent_actions]
+        r1 = play_actions[:5]
+        r2 = play_actions[1:]
+        if len(cls_hp) < play_duration*2:
+            lines = court_detector.track_court(im0s, keep_court=keep_court)
+            classifier_status = 'play'
+        else:
+            if sum(r1) >= 5 and sum(r2) >=5:
+                lines = court_detector.track_court(im0s, keep_court=keep_court)
+                classifier_status = 'play'
+            elif sum(r2) <5:
+                lines = court_detector.track_court(im0s, keep_court=True)
+                classifier_status = 'highlight'
+            elif sum(r1) < 5 and sum(r2) >=5:
+                court_detector = CourtDetector(mask_points)
+                classifier_status = 'play'
+                lines = court_detector.detect(frame=im0s, mask_points=mask_points)
+
         # lines = court_detector.begin(type=click_type, frame=im0s, mask_points=mask_points) if idx == 0 else \
         #     court_detector.track_court(im0s, keep_court=keep_court)
 
@@ -242,18 +266,24 @@ def detect(save_img=False):
             nms_time = (t3 - t2) * 1000
             elapsed_time = inference_time + nms_time
             print(f'{s}Done. ({elapsed_time:.3f}ms)')
-        strategies.process(ball_exist, ball_center, humans_box, humans_action)
-        strategies.update_line(lines)
-        strategies.visualize_strategies(im0)
-        court_detector.visualize(im0, lines)
+        strategies.process(ball_exist, ball_center, humans_box, humans_action,classifier_status, lines)
+        # strategies.update_line(lines)
+
         highlight_classifier.visualize(im0)
         # top_view.visualize(im0)
             # Stream results
         frame_list.append(im0)
-        player_bv, _, speed, heatmap = top_view.process(court_detector, strategies.get_box(), strategies.get_ball(),elapsed_time)
-        top_view_frame_list.append(cv2.resize(player_bv, (480, 640)))
-        speed_list.append(speed)
-        heatmap_list.append(heatmap)
+        if classifier_status == "play":
+            strategies.visualize_strategies(im0)
+            court_detector.visualize(im0, lines)
+            player_bv, _, speed, heatmap = top_view.process(court_detector, strategies.get_box(), strategies.get_ball(),elapsed_time)
+            top_view_frame_list.append(cv2.resize(player_bv, (480, 640)))
+            speed_list.append(speed)
+            heatmap_list.append(heatmap)
+        else:
+            top_view_frame_list.append(top_view_frame_list[-1])
+            speed_list.append(speed_list[-1])
+            heatmap_list.append(heatmap_list[-1])
 
         BoxProcessor.enqueue(ball_pred[0])
         BoxRegProcessor.enqueue(ball_pred[0])
@@ -278,7 +308,7 @@ def detect(save_img=False):
                 words = ML_classes[
                     int(joblib_model.predict(np.expand_dims(np.array(ball_locations).flatten(), axis=0))[0])]
 
-            color = (0, 255, 0) if words == "landing" else (0, 0, 255)
+            color = (0, 0, 255) if words == "landing" else (0, 255, 0)
             cv2.putText(im0, words, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
 
             cv2.imshow(str(p), frame_list[0])
@@ -293,7 +323,7 @@ def detect(save_img=False):
             cv2.imshow("Heatmap", heatmap_list[0])
             heatmap_list = heatmap_list[1:]
 
-            cv2.waitKey(0)  # 1 millisecond
+            cv2.waitKey(1)  # 1 millisecond
 
             # Save results (image with detections)
 

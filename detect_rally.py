@@ -5,6 +5,8 @@ from strategy.rally import RallyChecker
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
+from strategy.court.top_view import TopViewProcessor
+from strategy.court.court_detector import CourtDetector
 from numpy import random
 
 from models.experimental import attempt_load
@@ -14,9 +16,8 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 
-
 def detect(save_img=False):
-    rally_checker = RallyChecker()
+    mask_points = []
     source, view_img, save_txt, imgsz, trace = opt.source, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
     ball_weights, human_weights = opt.ball_weights, opt.human_weights
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
@@ -31,6 +32,43 @@ def detect(save_img=False):
     set_logging()
     device = select_device(opt.device)
     half = device.type != 'cpu'  # half precision only supported on CUDA
+
+    click_type = 'inner'
+    keep_court = False
+
+    def click_points():
+        def click_event(event, x, y, flags, param):
+            if event == cv2.EVENT_LBUTTONDOWN:
+                mask_points.append((x, y))
+                cv2.circle(img, (x, y), 5, (0, 255, 0), -1)
+                cv2.imshow('image', img)
+                if len(mask_points) > 4:
+                    mask_points.pop(0)
+                    print(mask_points)
+
+        height, width, channel = img.shape
+        cv2.namedWindow("image", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("image", width, height)
+        cv2.namedWindow("image")
+        cv2.setMouseCallback("image", click_event)
+
+        while True:
+            cv2.imshow("image", img)
+            key = cv2.waitKey(1) & 0xFF
+            if key == 27:
+                break
+        print(mask_points)
+    cap = cv2.VideoCapture(source)
+    ret, img = cap.read()
+
+    if not mask_points:
+        click_points()
+    cap.release()
+
+    court_detector = CourtDetector(mask_points)
+    init_lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points)
+    central_y, central_x = int((init_lines[9] + init_lines[11])//2), int((init_lines[-12] + init_lines[-10])//2)
+    rally_checker = RallyChecker(central_y=central_y,central_x=central_x)
 
     # Load model
     ball_model = attempt_load(ball_weights, map_location=device)  # load FP32 model
@@ -76,7 +114,10 @@ def detect(save_img=False):
 
     t0 = time.time()
     for path, img, im0s, vid_cap in dataset:
+        lines = court_detector.track_court(im0s, keep_court=keep_court)
+        central_y, central_x = int((lines[9] + lines[11])//2), int((lines[-12] + lines[-10])//2)
         humans_box, humans_action = [], []
+        ball_box = []
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -134,6 +175,7 @@ def detect(save_img=False):
                             ball_exist = True
                             ball_center = ([(xyxy[0].tolist() + xyxy[2].tolist()) / 2,
                                             (xyxy[1].tolist() + xyxy[3].tolist()) / 2])
+                            ball_box.append(ball_center)
                         else:
                             humans_box.append([i.tolist() for i in xyxy])
                             humans_action.append(name[int(cls)])
@@ -151,12 +193,13 @@ def detect(save_img=False):
                     ball_center = (-1, -1)
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
+        rally_checker.update_line(central_x,central_y)
         rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
         rally_checker.visualize(im0)
             # Stream results
         if view_img:
             cv2.imshow(str(p), im0)
-            cv2.waitKey(0)  # 1 millisecond
+            cv2.waitKey(1)  # 1 millisecond
 
 
         # Save results (image with detections)

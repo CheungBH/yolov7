@@ -110,8 +110,10 @@ class TopViewProcessor:
         if profile:
             print("Time taken for speed: ", time.time() - init_time)
             init_time = time.time()
-
-        hm = self.vis_heatmap()
+        try:
+            hm = self.vis_heatmap()
+        except:
+            hm = frame
         if profile:
             print("Time taken for heatmap: ", time.time() - init_time)
         return frame, movement, speed, hm

@@ -127,7 +127,6 @@ class RallyChecker:
 
     def visualize(self, img):
         h, w = img.shape[:2]
-        #cv2.line(img, (self.central_x, 0), (self.central_x, h), (255, 0, 0), 2)
         cv2.line(img, (0, self.central_y), (w, self.central_y), (255, 0, 0), 2)
         cv2.line(img, (self.central_x, 0), (self.central_x, h), (255, 0, 0), 2)
 
@@ -140,10 +139,6 @@ class RallyChecker:
         else:
             cv2.putText(img, "Not Rallying", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         color = (255, 0, 255)
-        #ball_status = "Ball towards: " + str(self.current_ball_towards) + ", Ball location: " + str(self.ball_position)
-        #cv2.putText(img, ball_status, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-        #cv2.putText(img, "Rally count: " + str(self.rally_cnt), (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-        #cv2.putText(img, "End situation: " + str(self.end_situation), (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
         cv2.putText(img, "Rally count: ", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
         cv2.putText(img, "End situation: ", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,125,125), 2)
         if self.rally_cnt % 2 == 0:

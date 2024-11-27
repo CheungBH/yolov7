@@ -16,7 +16,7 @@ class CourtDetector:
   """
   Detecting and tracking court in frame
   """
-  def __init__(self, verbose=0, param_path="tmp/param"):
+  def __init__(self, verbose=0, param_path=""):
     self.param_path = param_path
     self.verbose = verbose
     self.colour_threshold = 200
