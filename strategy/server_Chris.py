@@ -1,7 +1,5 @@
 import cv2
 from collections import defaultdict
-#serve_side固定，serve_position可能改变，加入一个变量，serve_cnt（１/２/3），如果,serve_position相同，则＋１，不同则不变
-#overhead 出现的时候，判断serve_position,
 
 class ServeChecker:
     def __init__(self, serve_side="upper", serve_position='left',central_x=640, central_y=330, **kwargs):
@@ -23,7 +21,11 @@ class ServeChecker:
     def check_action(self):
         recent_actions = self.actions[self.serve_side][-self.recent_times:]
         serve_actions = [True if action == "overhead" else False for action in recent_actions]
-        return True if sum(serve_actions) >= self.thresh*self.recent_times else False
+        if sum(serve_actions) >= self.thresh*self.recent_times:
+            self.find_serve_position(self.boxes[self.serve_side][-1])
+            return True
+        else:
+            return False
 
     def find_serve_position(self, box):
         if (box[0]+box[2])/2 < self.central_x:
@@ -67,11 +69,12 @@ class ServeChecker:
                     self.actions["upper"].append(action)
                     self.boxes["upper"].append(box)
                     upper_appended = True
-
+        '''
         if len(self.boxes[self.serve_side])>0:
             self.find_serve_position(self.boxes[self.serve_side][-1])
-
+        '''
         if len(self.actions[self.serve_side]) > self.recent_times:
+            self.check_action()
             self.check_serve()
 
 
@@ -83,7 +86,7 @@ class ServeChecker:
         cv2.line(img, (self.central_x, 0), (self.central_x, h), (255, 0, 0), 2)
         cv2.line(img, (0, self.central_y), (w, self.central_y), (255, 0, 0), 2)
         recent_actions = self.actions[self.serve_side][-self.recent_times:]
-        serve_actions = [True if action == "overhead" else False for action in recent_actions] #???
+        serve_actions = [True if action == "overhead" else False for action in recent_actions]
         cv2.putText(img, "Serve: {}/{}".format(sum(serve_actions), self.recent_times), (10, 100),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
         cv2.putText(img, "{} serve".format(self.serve_cnt),(10,130),cv2.FONT_HERSHEY_SIMPLEX,1,(0, 255, 0),2)

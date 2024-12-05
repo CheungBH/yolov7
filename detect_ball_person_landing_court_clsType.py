@@ -19,9 +19,9 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 from detect_with_ML import Queue
 
 
-serve_side, serve_position = "lower", "left"
+serve_side, serve_position = "upper", "right"
 begin_with = "serve"
-mask_points = [(342, 160), (935, 159), (1170, 587), (69, 581)]
+mask_points = []
 
 
 if serve_side == 'lower':
@@ -85,9 +85,8 @@ def detect(save_img=False):
     if half:
         human_model.half()  # to FP16
 
-    click_type = "detect"
-    #$keep_court = False
-    #click_type = 'inner'
+    #click_type = "inner/detect"
+    click_type = 'detect'
     keep_court = False
 
     def click_points():
@@ -166,21 +165,21 @@ def detect(save_img=False):
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
         classifier_result = highlight_classifier(im0s)
         cls_hp.append(classifier_result)
-        recent_actions = cls_hp[-play_duration*2:]
+        recent_actions = cls_hp[-(play_duration+1):]
         play_actions = [True if action == "play" else False for action in recent_actions]
-        r1 = play_actions[:5]
+        r1 = play_actions[:play_duration]
         r2 = play_actions[1:]
-        if len(cls_hp) < play_duration*2:
+        if len(cls_hp) < play_duration:
             lines = court_detector.track_court(im0s, keep_court=keep_court)
             classifier_status = 'play'
         else:
-            if sum(r1) >= 5 and sum(r2) >=5:
+            if sum(r1) >= play_duration and sum(r2) >=play_duration:
                 lines = court_detector.track_court(im0s, keep_court=keep_court)
                 classifier_status = 'play'
-            elif sum(r2) <5:
+            elif sum(r2) <play_duration:
                 lines = court_detector.track_court(im0s, keep_court=True)
                 classifier_status = 'highlight'
-            elif sum(r1) < 5 and sum(r2) >=5:
+            elif sum(r1) < play_duration and sum(r2) >=play_duration:
                 court_detector = CourtDetector(mask_points)
                 classifier_status = 'play'
                 lines = court_detector.detect(frame=im0s, mask_points=mask_points)
@@ -212,8 +211,8 @@ def detect(save_img=False):
         t2 = time_synchronized()
 
         # Apply NMS
-        ball_pred = non_max_suppression(ball_pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
-        human_pred = non_max_suppression(human_pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
+        ball_pred = non_max_suppression(ball_pred, opt.ball_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
+        human_pred = non_max_suppression(human_pred, opt.human_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
         t3 = time_synchronized()
 
         preds = [ball_pred, human_pred]
@@ -276,7 +275,7 @@ def detect(save_img=False):
         if classifier_status == "play":
             strategies.visualize_strategies(im0)
             court_detector.visualize(im0, lines)
-            player_bv, _, speed, heatmap = top_view.process(court_detector, strategies.get_box(), strategies.get_ball(),elapsed_time)
+            player_bv, _, speed, heatmap = top_view.process(court_detector, strategies.get_box(), strategies.get_ball(),elapsed_time, vis_graph=False)
             top_view_frame_list.append(cv2.resize(player_bv, (480, 640)))
             speed_list.append(speed)
             heatmap_list.append(heatmap)
@@ -378,8 +377,9 @@ if __name__ == '__main__':
     parser.add_argument('--human_weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str, default='inference/images', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
+    parser.add_argument('--ball-thres', type=float, default=0.5, help='ball confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
+    parser.add_argument('--human-thres', type=float, default=0.25, help='human confidence threshold')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')

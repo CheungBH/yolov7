@@ -35,12 +35,13 @@ class StrategyManager:
         if self.check_stage == "serve":
             if self.serve_checker.flag:
                 self.check_stage = 'rally'
+                self.args["serve_condition"] = "First serve" if self.serve_checker.serve_cnt == 1 else "Second serve"
                 self.rally_checker = RallyChecker(**self.args)
                 self.update_line(lines)
-                self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
+                self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action,lines)
             else:
                 self.serve_checker.process(humans_box, humans_action)
-        else:
+        elif self.check_stage == 'rally':
             if self.rally_checker.end_situation == "Out bound" or self.rally_checker.end_situation == "Down net":
                 self.check_stage = "serve"
                 self.previous_position = self.serve_checker.serve_position
@@ -49,7 +50,8 @@ class StrategyManager:
                 self.update_line(lines)
                 self.serve_checker.process(humans_box, humans_action)
             else:
-                self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action)
+                self.update_line(lines)
+                self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action,lines)
 
 
     def get_box(self):

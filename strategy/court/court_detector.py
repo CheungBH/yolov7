@@ -73,7 +73,7 @@ class CourtDetector:
     self.frame = frame
     self.v_height, self.v_width = frame.shape[:2]
     # Get binary image from the frame
-    self.gray = self._threshold(frame)
+    self.gray = self._threshold(frame, thresh=140)
 
     # Filter pixel using the court known structure
     filtered = self._filter_pixels(self.gray)
@@ -137,12 +137,12 @@ class CourtDetector:
       return self.find_lines_location()
 
 
-  def _threshold(self, frame):
+  def _threshold(self, frame, thresh=150):
     """
     Simple thresholding for white pixels
     """
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    gray = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)[1]
+    gray = cv2.threshold(gray, thresh, 255, cv2.THRESH_BINARY)[1]
     return gray
 
 
@@ -478,7 +478,7 @@ class CourtDetector:
                 bottom_y, bottom_x = min(p[1] + self.dist, self.v_height), min(p[0] + self.dist, self.v_width)
                 patch = gray[top_y: bottom_y, top_x: bottom_x]
                 y, x = np.unravel_index(np.argmax(patch), patch.shape)
-                if patch[y, x] > 150:
+                if patch[y, x] > 100:
                     new_p = (x + top_x + 1, y + top_y + 1)
                     new_points.append(new_p)
                     cv2.circle(copy, p, 1, (255, 0, 0), 1)
@@ -490,6 +490,8 @@ class CourtDetector:
                               (int(x + vx * self.v_width), int(y + vy * self.v_width))))
             # print('REACHED HEREEEEEEEEEEEEEEEEEEEEEEEEEEEE ', len(new_points))
             # if less than 50 points were found detect court from the start instead of tracking
+
+            print(len(new_points))
             if len(new_points) < 50:
                 print('CAMERA ...', end=' ')
                 if self.dist > 20:
