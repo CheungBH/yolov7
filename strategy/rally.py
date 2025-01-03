@@ -1,5 +1,6 @@
 from collections import defaultdict
 import cv2
+import csv
 
 
 class RallyChecker:
@@ -9,6 +10,7 @@ class RallyChecker:
         self.balls_existing = []
         self.ball_locations = []
         self.balls= []
+        self.bounce = defaultdict(list)
         self.player_boxes = defaultdict(list)
         self.player_actions = defaultdict(list)
         self.middle_upper_y, self.middle_lower_y = central_y-60, central_y+30
@@ -30,6 +32,10 @@ class RallyChecker:
         self.ball_positions = []
         self.end_situation = "Not ending"
         self.serve_condition = serve_condition
+        self.frame_cnt=[]
+        self.landing = []
+        self.rally_cnt_list = []
+        self.insidecourt_list = []
 
     def update_line(self, central_x, central_y):
         self.central_x, self.central_y = int(central_x), int(central_y)
@@ -70,6 +76,7 @@ class RallyChecker:
             else:
                 self.ball_position = current_ball_position
 
+
     def check_rally_status(self):
         self.check_end_rally() if self.rallying else self.check_begin_rally()
 
@@ -86,6 +93,7 @@ class RallyChecker:
         #ball_existing = self.balls_existing[-out_bound_cnt:]
         ball_existing = self.balls_existing[-1]
         if ball_existing:
+            '''
             if self.ball_locations[-1][1] < max(self.top_y,(self.player_boxes['upper'][-1][1]+self.player_boxes['upper'][-1][3])/2) and self.ball_locations[-1][1]>min(self.top_y,(self.player_boxes['upper'][-1][1]+self.player_boxes['upper'][-1][3])/2):
                 if abs(self.ball_locations[-1][0] - (self.player_boxes['upper'][-1][0]+self.player_boxes['upper'][-1][2])/2) >3*abs(self.player_boxes['upper'][-1][0]-self.player_boxes['upper'][-1][2]):
                     self.rallying = False
@@ -94,8 +102,8 @@ class RallyChecker:
                  if abs(self.ball_locations[-1][0] - (self.player_boxes['lower'][-1][0]+self.player_boxes['lower'][-1][2])/2) >2*abs(self.player_boxes['lower'][-1][0]-self.player_boxes['lower'][-1][2]):
                     self.rallying = False
                     self.end_situation = "Out bound"
-
-            elif len(self.ball_locations) > self.down_net_duration:
+            '''
+            if len(self.ball_locations) > self.down_net_duration:
                 # cnt_chosen = min(len(self.ball_locations), self.down_net_duration)
                 #balls = self.ball_locations[-self.down_net_duration:]
                 # Check the ball in the middle area
@@ -110,29 +118,114 @@ class RallyChecker:
     def get_box(self):
         return [self.player_boxes[position][-1] for position in ["upper", "lower"]]
 
+    def get_action(self):
+        return [self.player_actions[position][-1] for position in ["upper", "lower"]]
+
     def get_ball(self):
         if not self.balls_existing[-1]:
             return None
         else:
             return self.ball_locations[-1]
+    def find_center_points(self,data,ratio=1/2,frame_cnt=[]):
+        for i in range(1, len(data) - 1):
+            start = max(0, i - 2)
+            end = min(len(data), i + 2)
+            if data[i] == 0 :
+                if sum(data[start:end]) >= 3:
+                    data[i] = 1
+            '''else:
+                if sum(data[start:end]) < 3:
+                    data[i] = 0'''
+        start = None
+        centers = []
+        center_frame_cnt = []
 
-    def process(self, ball_appears, ball_locations, player_box, player_action,lines):
+        for i, value in enumerate(data):
+            if value == 1 and start is None:
+                start = i
+            elif value == 0 and start is not None:
+                end = i - 1
+                center = int((start*(1-ratio) + end *ratio))
+                centers.append(center)
+                center_frame_cnt.append(frame_cnt[center])
+                start = None
+        if start is not None:
+            end = len(data) - 1
+            center = int((start*(1-ratio) + end *ratio))
+            centers.append(center)
+            center_frame_cnt.append(frame_cnt[center])
+        return centers,center_frame_cnt
+    def find_landing(self,data,frame_cnt=[]):
+        landing_frame_cnt=[]
+        for i, value in enumerate(data):
+            if value =='landing':
+                landing_frame_cnt.append(frame_cnt[i]-5)
+        return landing_frame_cnt
+
+    def output_csv(self):
+        list1 = self.player_actions['upper']
+        list2 = self.player_boxes['upper']
+        list3 = self.player_actions['lower']
+        list4 = self.player_boxes['lower']
+        list5 = self.landing
+        list6 = self.ball_locations
+        list7 = self.rally_cnt_list #bug
+        list8 = self.frame_cnt
+        max_length = len(self.frame_cnt)
+        list1 += [] * (max_length - len(list1))
+        list2 += [] * (max_length - len(list2))
+        list3 += [] * (max_length - len(list3))
+        list4 += [] * (max_length - len(list4))
+        list5 += [] * (max_length - len(list5))
+        list6 += [] * (max_length - len(list6))
+        list7 += [] * (max_length - len(list7))
+        list8 += [] * (max_length - len(list8))
+        csv_path = 'test_csv/output.csv'
+        with open(csv_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['upper_action', 'upper_box','lower_action', 'lower_box','ball_sate','ball_location', 'rally_cnt','frame'])  # 写入表头
+            for row in zip(list1, list2, list3, list4, list5,list6, list7,list8):
+                writer.writerow(row)
+        return csv_path
+
+    def process(self, ball_appears, ball_locations, player_box, player_action,lines,frame_cnt,words):#frame_cnt
         self.balls_existing.append(ball_appears)
         self.ball_locations.append(ball_locations)
+        self.rally_cnt_list.append(self.rally_cnt)
         lower_appended, upper_appended = False, False
         self.top_y = min(lines[1],lines[3])
         self.bottom_y = max(lines[5],lines[7])
+        self.landing.append(words)
         for box, action in zip(player_box, player_action):
             if box[3] > self.central_y:
                 if not lower_appended:
                     self.player_actions["lower"].append(action)
                     self.player_boxes["lower"].append(box)
                     lower_appended = True
+                else:
+                    if action != 'waiting':
+                        self.player_actions["lower"][-1] = action
             else:
                 if not upper_appended:
                     self.player_actions["upper"].append(action)
                     self.player_boxes["upper"].append(box)
                     upper_appended = True
+                else:
+                    if action != 'waiting':
+                        self.player_actions["upper"][-1] = action
+
+
+        self.bounce['upper'].append(0) if self.player_actions['upper'][-1] == 'waiting' else self.bounce['upper'].append(1)
+        self.bounce['lower'].append(0) if self.player_actions['lower'][-1] == 'waiting' else self.bounce['lower'].append(1)
+        self.frame_cnt.append(frame_cnt)
+
+        print(self.bounce)
+        print("A is ",self.find_center_points(self.bounce['upper'],frame_cnt=self.frame_cnt))
+        print("B is ",self.find_center_points(self.bounce['lower'],ratio=3/4,frame_cnt=self.frame_cnt))
+        #print(self.landing)
+        #print("C is ",self.find_landing(self.landing,frame_cnt=self.frame_cnt))
+
+
         if len(self.ball_locations) > self.recent_ball:
             self.check_rally_status()
             self.update_ball_status(ball_locations)
@@ -142,7 +235,6 @@ class RallyChecker:
         #cv2.line(img, (self.central_x, 0), (self.central_x, h), (255, 0, 0), 2)
         cv2.line(img, (0, self.central_y), (w, self.central_y), (255, 0, 0), 2)
         cv2.line(img, (self.central_x, 0), (self.central_x, h), (255, 0, 0), 2)
-
         cv2.line(img, (0, self.middle_lower_y), (w, self.middle_lower_y), (0, 255, 0), 2)
         cv2.line(img, (0, self.middle_upper_y), (w, self.middle_upper_y), (0, 255, 0), 2)
         # Purple
@@ -156,6 +248,7 @@ class RallyChecker:
         #cv2.putText(img, ball_status, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
         #cv2.putText(img, "Rally count: " + str(self.rally_cnt), (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
         #cv2.putText(img, "End situation: " + str(self.end_situation), (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+        # self.output_csv()
         cv2.putText(img, "Rally count: ", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
         cv2.putText(img, "End situation: ", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,125,125), 2)
         cv2.putText(img, "Serve condition: {}".format(self.serve_condition), (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (20,60,220), 2)

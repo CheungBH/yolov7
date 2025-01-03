@@ -17,7 +17,7 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 from detect_with_ML import Queue
-
+from strategy.csv_analysis import main as csv_main
 
 serve_side, serve_position = "lower", "right"
 begin_with = "serve"
@@ -91,7 +91,7 @@ def detect(save_img=False):
         mask_points_str = opt.masks#"374 133 949 143 1152 584 124 582"
         mask_pre = mask_points_str[0].split(' ')
         mask_points = [(int(mask_pre[0]),int(mask_pre[1])),(int(mask_pre[2]),int(mask_pre[3])),(int(mask_pre[4]),int(mask_pre[5])),(int(mask_pre[6]),int(mask_pre[7]))]
-    click_type = 'detect'
+    click_type = 'inner'
     keep_court = False
 
     def click_points():
@@ -385,7 +385,11 @@ def detect(save_img=False):
 
 
     print(f'Done. ({time.time() - t0:.3f}s)')
-    #strategies.rally_checker.output_csv()
+    strategies.rally_checker.output_csv()
+    #csv_file = strategies.rally_checker.output_csv()
+    #csv_main(csv_file,opt.source)
+
+
 
 
 if __name__ == '__main__':
