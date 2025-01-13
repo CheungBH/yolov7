@@ -30,27 +30,36 @@ def process_rally_changes(data):
     return rally_change_list, rally_change_intervals
 
 def find_ball_list(data):
-    ball_list=[[-1,-1]]*int(data[0][7])
+    ball_list=[[500,500]]*int(data[0][7])
     upper_box_list=[[100,100,200,200]]*int(data[0][7])
     lower_box_list=[[100,100,200,200]]*int(data[0][7])
     for row in data:
-        ball_list.append(row[5])
+        ball_list.append(row[5]) if row[5]!= (-1,-1) else ball_list.append(ball_list[-1])
         upper_box_list.append(row[1])
         lower_box_list.append(row[3])
     return ball_list,upper_box_list,lower_box_list
 
-def get_human_hit(rally_change_intervals, data, height):
+def get_human_hit(rally_change_intervals, data, height,ball_list):
     human_hits = []
+    rally_change_new_intervals=[]
     for begin_time, end_time in rally_change_intervals:
         for row in data:
             if int(row[7]) == begin_time:
-                ball_location = row[5]
-                if ball_location[1] > 0.5 * height:
+                ball_location = ball_list#row[5]
+                if ball_location[begin_time][1] > 0.5 * height:
                     human_hits.append('lower')
                 else:
                     human_hits.append('upper')
                 break
-    return human_hits
+    for i in range(len(human_hits)):
+        if i > 0 and human_hits[i] != human_hits[i-1]:
+            rally_change_new_intervals.append(rally_change_intervals[i])
+        elif i > 0:
+            rally_change_new_intervals[-1][1] = rally_change_intervals[i][1]
+        #else:
+            #rally_change_new_intervals.append(rally_change_intervals[i])  # For the first element
+    human_hits = [human_hits[i] for i in range(len(human_hits)) if human_hits[i] !=human_hits[i-1]]
+    return human_hits,rally_change_new_intervals
 
 def get_hit_times(rally_change_intervals, human_hits, data):
     upper_hit = []
@@ -182,7 +191,7 @@ def main(csv_file,video_file):
 
     rally_change_list, rally_change_intervals = process_rally_changes(data)
     ball_list,upper_box_list,lower_box_list = find_ball_list(data)
-    human_hits = get_human_hit(rally_change_intervals, data, height)
+    human_hits,rally_change_intervals = get_human_hit(rally_change_intervals, data, height,ball_list)
     upper_hit, lower_hit, first_landing,upper_hit_intervals,lower_hit_intervals = get_hit_times(rally_change_intervals, human_hits, data)
     upper_state_list,lower_state_list = upper_lower_state(total_frame,upper_hit, lower_hit,upper_hit_intervals,lower_hit_intervals)
 
@@ -212,4 +221,4 @@ def main(csv_file,video_file):
     print("处理后的视频已保存为 output.mp4")
 
 if __name__ == "__main__":
-    main(csv_file='/media/hkuit164/Backup/yolov7/test_csv/output.csv',video_file='/media/hkuit164/WD20EJRX/Chris/ball_tutorial/Kh/20231011_kh_yt_1.mp4')
+    main(csv_file='/media/hkuit164/Backup/yolov7/test_csv/output2.csv',video_file='/media/hkuit164/WD20EJRX/Chris/ball_tutorial/Kh/20231011_kh_yt_1.mp4')

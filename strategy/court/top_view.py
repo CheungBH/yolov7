@@ -185,12 +185,12 @@ class TopViewProcessor:
         if len(self.position[0]) == 0:
             return [[0, 0], [0, 0]]
         return [self.position[0][-1].tolist(), self.position[1][-1].tolist()]
-    '''
+
     def get_ball_location(self):
-        if len(self.ball_position[0]) == 0:
+        if len(self.ball_position) == 0:
             return[[0,0]]
-        return [self.ball_position[0][-1].tolist()]
-    '''
+        return [self.ball_position[-1].tolist()]
+
 
     def save(self, use_time=-1):
         self.vis_movement("tmp/movement_tmp.png")

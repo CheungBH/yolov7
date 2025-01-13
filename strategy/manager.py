@@ -20,16 +20,13 @@ class StrategyManager:
         elif self.check_stage == "highlight":
             self.highlight_update_line(lines)
 
-    def process(self, ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame,words):
+    def process(self, ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame,words,human_realbox,ball_realbox):
         if classifier_status == 'highlight':
-            # if not hasattr(self.serve_checker, "serve_position"):
             self.check_stage = 'serve'
             if hasattr(self.serve_checker, "serve_position"):
                 # self.previous_position = self.serve_checker.serve_position
                 self.args["serve_position"] = self.serve_checker.serve_position
             self.serve_checker = ServeChecker(**self.args)
-            # else:
-            #     self.serve_checker = ServeChecker(**self.args)
             return
         self.update_line(lines)
         if self.check_stage == "serve":
@@ -38,10 +35,11 @@ class StrategyManager:
                 self.args["serve_condition"] = "First serve" if self.serve_checker.serve_cnt == 1 else "Second serve"
                 self.rally_checker = RallyChecker(**self.args)
                 self.update_line(lines)
-                self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action,lines,frame,words)
+                self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action,lines,frame,words,human_realbox,ball_realbox)
             else:
                 self.serve_checker.process(humans_box, humans_action)
         elif self.check_stage == 'rally':
+
             if  self.rally_checker.end_situation == "Down net":
                 self.check_stage = "serve"
                 self.previous_position = self.serve_checker.serve_position
@@ -51,7 +49,7 @@ class StrategyManager:
                 self.serve_checker.process(humans_box, humans_action)
             else:
                 self.update_line(lines)
-                self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action,lines,frame,words)
+                self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action,lines,frame,words,human_realbox,ball_realbox)
 
 
     def get_box(self):

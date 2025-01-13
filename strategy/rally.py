@@ -36,6 +36,8 @@ class RallyChecker:
         self.landing = []
         self.rally_cnt_list = []
         self.insidecourt_list = []
+        self.ball_realbox_list = []
+        self.human_realbox_list = []
 
     def update_line(self, central_x, central_y):
         self.central_x, self.central_y = int(central_x), int(central_y)
@@ -171,6 +173,8 @@ class RallyChecker:
         list6 = self.ball_locations
         list7 = self.rally_cnt_list #bug
         list8 = self.frame_cnt
+        list9 = self.human_realbox_list
+        list10 = self.ball_realbox_list
         max_length = len(self.frame_cnt)
         list1 += [] * (max_length - len(list1))
         list2 += [] * (max_length - len(list2))
@@ -180,18 +184,23 @@ class RallyChecker:
         list6 += [] * (max_length - len(list6))
         list7 += [] * (max_length - len(list7))
         list8 += [] * (max_length - len(list8))
-        csv_path = 'test_csv/output.csv'
+        list9 += [] * (max_length - len(list7))
+        list10 += [] * (max_length - len(list8))
+
+        csv_path = 'test_csv/output2.csv'
         with open(csv_path, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['upper_action', 'upper_box','lower_action', 'lower_box','ball_sate','ball_location', 'rally_cnt','frame'])  # 写入表头
-            for row in zip(list1, list2, list3, list4, list5,list6, list7,list8):
+            writer.writerow(['upper_action', 'upper_box','lower_action', 'lower_box','ball_sate','ball_location', 'rally_cnt','frame','real_human','real_ball'])  # 写入表头
+            for row in zip(list1, list2, list3, list4, list5,list6, list7,list8,list9,list10):
                 writer.writerow(row)
         return csv_path
 
-    def process(self, ball_appears, ball_locations, player_box, player_action,lines,frame_cnt,words):#frame_cnt
+    def process(self, ball_appears, ball_locations, player_box, player_action,lines,frame_cnt,words,human_realbox,ball_realbox):#frame_cnt
         self.balls_existing.append(ball_appears)
         self.ball_locations.append(ball_locations)
         self.rally_cnt_list.append(self.rally_cnt)
+        self.human_realbox_list.append(human_realbox)
+        self.ball_realbox_list.append(ball_realbox)
         lower_appended, upper_appended = False, False
         self.top_y = min(lines[1],lines[3])
         self.bottom_y = max(lines[5],lines[7])

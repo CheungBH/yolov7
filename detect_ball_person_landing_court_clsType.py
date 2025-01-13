@@ -85,13 +85,12 @@ def detect(save_img=False):
     if half:
         human_model.half()  # to FP16
 
-    #click_type = "inner/detect"
     mask_points = []
     if opt.masks:
         mask_points_str = opt.masks#"374 133 949 143 1152 584 124 582"
         mask_pre = mask_points_str[0].split(' ')
         mask_points = [(int(mask_pre[0]),int(mask_pre[1])),(int(mask_pre[2]),int(mask_pre[3])),(int(mask_pre[4]),int(mask_pre[5])),(int(mask_pre[6]),int(mask_pre[7]))]
-    click_type = 'detect'
+    click_type = 'inner' #click_type = "inner/detect"
     keep_court = False
 
     def click_points():
@@ -271,7 +270,9 @@ def detect(save_img=False):
             nms_time = (t3 - t2) * 1000
             elapsed_time = inference_time + nms_time
             print(f'{s}Done. ({elapsed_time:.3f}ms)')
-        strategies.process(ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame, words)
+        human_realbox = top_view.get_player_location()
+        ball_realbox = top_view.get_ball_location()
+        strategies.process(ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame, words, human_realbox, ball_realbox)
         # strategies.update_line(lines)
 
         highlight_classifier.visualize(im0)

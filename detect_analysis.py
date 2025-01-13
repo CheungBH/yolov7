@@ -20,7 +20,7 @@ from detect_with_ML import Queue
 from strategy.csv_analysis import main as csv_main
 
 serve_side, serve_position = "lower", "right"
-begin_with = "serve"
+begin_with = "rally"
 ball_locations_list=[]
 
 if serve_side == 'lower':
@@ -271,7 +271,9 @@ def detect(save_img=False):
             nms_time = (t3 - t2) * 1000
             elapsed_time = inference_time + nms_time
             print(f'{s}Done. ({elapsed_time:.3f}ms)')
-        strategies.process(ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame, words)
+        human_realbox = top_view.get_player_location()
+        ball_realbox = top_view.get_ball_location()
+        strategies.process(ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame, words, human_realbox, ball_realbox)
         # strategies.update_line(lines)
 
         highlight_classifier.visualize(im0)
@@ -281,7 +283,7 @@ def detect(save_img=False):
         if classifier_status == "play":
             strategies.visualize_strategies(im0)
             court_detector.visualize(im0, lines)
-            player_bv, _, speed, heatmap = top_view.process(court_detector, strategies.get_box(), strategies.get_ball(),elapsed_time, vis_graph=False)
+            player_bv, _, speed, heatmap= top_view.process(court_detector, strategies.get_box(), strategies.get_ball(),elapsed_time, vis_graph=False)
             top_view_frame_list.append(cv2.resize(player_bv, (480, 640)))
             speed_list.append(speed)
             heatmap_list.append(heatmap)
@@ -385,9 +387,8 @@ def detect(save_img=False):
 
 
     print(f'Done. ({time.time() - t0:.3f}s)')
-    strategies.rally_checker.output_csv()
-    #csv_file = strategies.rally_checker.output_csv()
-    #csv_main(csv_file,opt.source)
+    csv_file = strategies.rally_checker.output_csv()
+    csv_main(csv_file,opt.source)
 
 
 
