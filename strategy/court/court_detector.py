@@ -3,7 +3,10 @@ import cv2
 import os
 from sympy import Line
 from itertools import combinations
-from .court_reference import CourtReference
+try:
+    from .court_reference import CourtReference
+except:
+    from court_reference import CourtReference
 import scipy.signal as sp
 
 try:
