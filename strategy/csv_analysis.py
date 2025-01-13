@@ -195,8 +195,6 @@ def main(csv_file,video_file):
     upper_hit, lower_hit, first_landing,upper_hit_intervals,lower_hit_intervals = get_hit_times(rally_change_intervals, human_hits, data)
     upper_state_list,lower_state_list = upper_lower_state(total_frame,upper_hit, lower_hit,upper_hit_intervals,lower_hit_intervals)
 
-
-
     frame_count = 0
     while cap.isOpened():
         ret, frame = cap.read()
