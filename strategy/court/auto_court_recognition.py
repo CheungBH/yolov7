@@ -13,10 +13,14 @@ def click_points(event, x, y, flags, param):
 def main():
     click_type = "detect"
 
-    folder_path = '/media/hkuit164/WD20EJRX/Chris/ball_tutorial/data/test'
+    folder_path = 'assets/source_video'
+    output_folder = "assets/out_video"
+    court_path = "court_reference.png"
     mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
 
     masks = []
+    mask_path = "mask.txt"
+    mask_file = open(mask_path, "a+")
 
     for file in mp4_files:
         video_path = os.path.join(folder_path, file)
@@ -42,12 +46,13 @@ def main():
 
         # 保存点击的点
         masks.append(points)
+        mask_file.write("{}: {}\n".format(file, points))
         cv2.destroyWindow('image')
 
-    # 3. 对每个视频运行 detect.py
     for file, mask in zip(mp4_files, masks):
-        court_detector = CourtDetector()
+        court_detector = CourtDetector(court_path=court_path)
         cap = cv2.VideoCapture(os.path.join(folder_path, file))
+        out_writer = cv2.VideoWriter(os.path.join(output_folder, file), cv2.VideoWriter_fourcc(*'mp4v'), 10,(int(cap.get(3)), int(cap.get(4))))
         idx = 0
 
         while True:
@@ -56,9 +61,11 @@ def main():
                 break
             if idx == 0:
                 court_detector.begin(type=click_type, frame=frame, mask_points=mask)
+                court_detector.save_detect_tmp(os.path.join(output_folder, file.split(".")[0]))
             else:
                 court_detector.track_court(frame)
-
+                court_detector.save_track_tmp(os.path.join(output_folder, file.split(".")[0]))
+            out_writer.write(frame)
             cv2.imshow("court", frame)
             cv2.waitKey(1)  # 1 millisecond
 

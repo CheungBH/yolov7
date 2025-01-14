@@ -7,7 +7,8 @@ class CourtReference:
     """
     Court reference model
     """
-    def __init__(self):
+    def __init__(self, court_path='strategy/court/court_reference.png'):
+        self.court_path = court_path
         self.baseline_top = ((286, 561), (1379, 561))
         self.baseline_bottom = ((286, 2935), (1379, 2935))
         self.net = ((286, 1748), (1379, 1748))
@@ -48,7 +49,7 @@ class CourtReference:
         self.court_total_width = self.court_width + self.right_left_border * 2
         self.court_total_height = self.court_height + self.top_bottom_border * 2
 
-        self.court = cv2.cvtColor(cv2.imread('strategy/court/court_reference.png'), cv2.COLOR_BGR2GRAY)
+        self.court = cv2.cvtColor(cv2.imread(court_path), cv2.COLOR_BGR2GRAY)
 
     def build_court_reference(self):
         """
