@@ -60,11 +60,13 @@ def main():
             if not ret:
                 break
             if idx == 0:
-                court_detector.begin(type=click_type, frame=frame, mask_points=mask)
+                lines = court_detector.begin(type=click_type, frame=frame, mask_points=mask)
                 court_detector.save_detect_tmp(os.path.join(output_folder, file.split(".")[0]))
             else:
-                court_detector.track_court(frame)
+                lines = court_detector.track_court(frame)
                 court_detector.save_track_tmp(os.path.join(output_folder, file.split(".")[0]))
+            court_detector.visualize(frame, lines)
+            idx += 1
             out_writer.write(frame)
             cv2.imshow("court", frame)
             cv2.waitKey(1)  # 1 millisecond
