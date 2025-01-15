@@ -13,8 +13,8 @@ def click_points(event, x, y, flags, param):
 
 def main():
     # 1. 读取文件夹中的所有 .mp4 文件
-    folder_path = "D:\Ai_tennis\Source\Phone_shot\hk_atp250"
-    mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.MOV')]
+    folder_path = "D:\Ai_tennis\Source/0113_one_point/Clay"
+    mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
 
     masks = []
 
@@ -51,16 +51,15 @@ def main():
     # 3. 对每个视频运行 detect.py
     for file, mask in zip(mp4_files, masks):
         mask_str = ' '.join([f'{x}'' ' f'{y}' for x, y in mask])
-        cmd = (f'python detect_ball_person_landing_court_clsType.py --source {os.path.join(folder_path, file)} --masks "{mask_str}" '  
-               f'  --name detectPhone/hk250/newcut')
+        cmd = (f'python detect_analysis.py --source {os.path.join(folder_path, file)} --masks "{mask_str}" '  
+               f' --output_csv_file {"test_csv/Clay/" + os.path.join(file.split(".")[0]) + ".csv"} --name newcut'
+               f' --topview_path {"top_view/Clay/" + os.path.join(file.split(".")[0]) + "_2.mp4"}')
         print(cmd)
         subprocess.run(cmd, shell=True)
 
-    # 4. 把每个文件夹newcut中的视频提取出来
-    # 定义源文件夹和目标文件夹
-    source_folder = "D:\Ai_tennis/yolov7/runs\detect/detectPhone/hk250"
-    destination_folder = "D:\Ai_tennis/yolov7/runs\detect/detectPhone/hk250"
 
+# 4. 把每个文件夹newcut中的视频提取出来
+def extract_video(source_folder, destination_folder):
     # 创建目标文件夹（如果不存在）
     os.makedirs(destination_folder, exist_ok=True)
 
