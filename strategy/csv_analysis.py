@@ -301,18 +301,19 @@ def cross_straight(total_frame, hit_times, data, width):
                     cross_straight_list[j] = [1,start_point, end_point]
     last_real_ball_locations = [row[9][0] for row in data if hit_times[-1] <= int(row[7]) <= total_frame and row[5] != (-1, -1)]
     last_ball_locations = [row[5] for row in data if hit_times[-1] <= int(row[7]) <= total_frame and row[5] != (-1, -1)]
-    x1 = int(last_ball_locations[0][0])
-    y1 = int(last_ball_locations[0][1])
-    x2 = int(last_ball_locations[-1][0])
-    y2 = int(last_ball_locations[-1][1])
-    start_point = (x1, y1)
-    end_point = (x2, y2)
-    if is_cross(last_real_ball_locations, width):
-        for k in range(hit_times[-1], total_frame):
-            cross_straight_list[k]=[0,start_point, end_point]
-    else:
-        for k in range(hit_times[-1], total_frame):
-            cross_straight_list[k]=[1,start_point, end_point]
+    if last_ball_locations:
+        x1 = int(last_ball_locations[0][0])
+        y1 = int(last_ball_locations[0][1])
+        x2 = int(last_ball_locations[-1][0])
+        y2 = int(last_ball_locations[-1][1])
+        start_point = (x1, y1)
+        end_point = (x2, y2)
+        if is_cross(last_real_ball_locations, width):
+            for k in range(hit_times[-1], total_frame):
+                cross_straight_list[k]=[0,start_point, end_point]
+        else:
+            for k in range(hit_times[-1], total_frame):
+                cross_straight_list[k]=[1,start_point, end_point]
     return cross_straight_list
 
 # def cross_straight(total_frame, hit_times, data, width):
@@ -416,7 +417,24 @@ def draw_ball_boxes_arrows(frame, row, first_landings, frame_count, previous_pos
         arrow_color = (0, 0, 255)
         cv2.arrowedLine(frame, start_point, end_point, arrow_color, 3)
 
+def find_name_folder(file_path):
+    # 找到最后一个 "/" 和 "." 的位置
+    start_index = file_path.rfind("/") + 1
+    end_index = file_path.rfind(".")
+
+    # 提取中间的内容
+    if start_index != -1 and end_index != -1 and start_index < end_index:
+        content = file_path[start_index:end_index]
+        folder = file_path[:start_index]
+        print(f"文件路径名中 '/' 和 '.' 之间的内容是: {content}")
+        print(f"文件夹路径是{folder}")
+        return content, folder
+    else:
+        print("找不到 '/' 或 '.'")
+
 def initialize_video_writer(video_file):
+    content, folder = find_name_folder(video_file)
+    out_path = os.path.join(folder, content + '_3.mp4')
     cap = cv2.VideoCapture(video_file)
     if not cap.isOpened():
         print("Error: Could not open video file.")
@@ -425,7 +443,7 @@ def initialize_video_writer(video_file):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 使用 'mp4v' 编码
-    out = cv2.VideoWriter('D:\Ai_tennis\yolov7_main\output_video/20241024_wholeGame_TFF_7_148_4.mp4', fourcc, fps, (width, height))
+    out = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
     return cap, out, fps, width, height
 
 def main(csv_file,video_file):
@@ -466,17 +484,15 @@ def main(csv_file,video_file):
     print("处理后的视频已保存.mp4")
 
 if __name__ == "__main__":
-    csv_path = "D:\Ai_tennis\yolov7_main/test_csv"
-    video_path = "D:\Ai_tennis\Source/0113_one_point"
-    csv_files = os.listdir(csv_path)
-    def process_csvs(csv_files):
-        for file_name in csv_files:
-            if file_name.endswith(".csv"):
-                csv_file = os.path.join(csv_path, file_name)
-                video_file = os.path.join(video_path, file_name.split('.')[0]+".mp4")
+    source_folder = "D:\Ai_tennis\Winter_intern/0115\Grass"
+    def process_csvs(source_folder):
+        for file_name in os.listdir(source_folder):
+            if os.path.isdir(os.path.join(source_folder, file_name)):
+                csv_file = os.path.join(source_folder, file_name, file_name + ".csv")
+                video_file = os.path.join(source_folder, file_name, file_name + ".mp4")
                 main(csv_file,video_file)
 
-    # process_csvs(csv_files)
+    process_csvs(source_folder)
 
-    main("D:\Ai_tennis\yolov7_main/test_csv/20241024_wholeGame_TFF_7_148.csv", "D:\Ai_tennis\Source/0113_one_point/20241024_wholeGame_TFF_7_148.mp4")
+    #main("D:\Ai_tennis\Winter_intern/0115\Grass/20241024_wholeGame_TFF_7_108/20241024_wholeGame_TFF_7_108.csv", "D:\Ai_tennis\Winter_intern/0115\Grass/20241024_wholeGame_TFF_7_108/20241024_wholeGame_TFF_7_108.mp4")
 
