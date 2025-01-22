@@ -204,9 +204,9 @@ class RallyChecker:
         dir_name, base_file = os.path.split(base_path)
         name, ext = os.path.splitext(base_file)
         counter = 1
-        csv_path = base_path
+        csv_path = os.path.join(dir_name, f"{name}_{counter}{ext}")
         while os.path.exists(csv_path):
-            csv_path = os.path.join(dir_name, f"{name}{counter}{ext}")
+            csv_path = os.path.join(dir_name, f"{name}_{counter}{ext}")
             counter += 1
         with open(csv_path, mode='w', newline='') as file:
             writer = csv.writer(file)

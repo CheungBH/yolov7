@@ -171,7 +171,7 @@ def detect(save_img=False):
     BoxRegProcessor = Queue(max_length=regression_frame, h=dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
                              w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     cls_hp=[]
-    play_duration = 3
+    play_duration = 5
     #play_threshold = 0.8
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
         classifier_result = highlight_classifier(im0s)
@@ -279,7 +279,7 @@ def detect(save_img=False):
             print(f'{s}Done. ({elapsed_time:.3f}ms)')
         human_realbox = top_view.get_player_location()
         ball_realbox = top_view.get_ball_location()
-        csv_path = 'test_csv/gameset1.csv'
+        csv_path = opt.csv_path
         strategies.process(ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame, words, human_realbox, ball_realbox,csv_path)
         # strategies.update_line(lines)
 
@@ -419,7 +419,9 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--no-trace', action='store_true', help='don`t trace model')
-    parser.add_argument('--masks',default='',nargs='+', help='mask') #"310 162 938 171 1147 601 140 591"
+    parser.add_argument('--masks',default='',nargs='+', help='mask')
+    parser.add_argument('--csv_path',default='test_csv/game1_set.csv',nargs='+', help='csv')
+
     opt = parser.parse_args()
     print(opt)
     #check_requirements(exclude=('pycocotools', 'thop'))
