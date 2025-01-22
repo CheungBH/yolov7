@@ -1,6 +1,7 @@
 from collections import defaultdict
 import cv2
 import csv
+import os
 
 
 class RallyChecker:
@@ -114,7 +115,7 @@ class RallyChecker:
                     self.balls = self.balls[-self.down_net_duration:] if len(self.balls) > self.down_net_duration else self.balls
                     ball_in_middle = [ball[1] > self.middle_upper_y and ball[1] < self.middle_lower_y for ball in self.balls]
                     if sum(ball_in_middle) > self.down_net_duration*self.down_net_threshold:
-                        self.rallying = False
+                        #self.rallying = False
                         self.end_situation = "Down net"
 
     def get_box(self):
@@ -164,34 +165,40 @@ class RallyChecker:
                 landing_frame_cnt.append(frame_cnt[i]-5)
         return landing_frame_cnt
 
-    def output_csv(self):
-        list1 = self.player_actions['upper']
-        list2 = self.player_boxes['upper']
-        list3 = self.player_actions['lower']
-        list4 = self.player_boxes['lower']
-        list5 = self.landing
-        list6 = self.ball_locations
-        list7 = self.rally_cnt_list #bug
-        list8 = self.frame_cnt
-        list9 = self.human_realbox_list
-        list10 = self.ball_realbox_list
-        max_length = len(self.frame_cnt)
-        list1 += [] * (max_length - len(list1))
-        list2 += [] * (max_length - len(list2))
-        list3 += [] * (max_length - len(list3))
-        list4 += [] * (max_length - len(list4))
-        list5 += [] * (max_length - len(list5))
-        list6 += [] * (max_length - len(list6))
-        list7 += [] * (max_length - len(list7))
-        list8 += [] * (max_length - len(list8))
-        list9 += [] * (max_length - len(list7))
-        list10 += [] * (max_length - len(list8))
 
-        csv_path = 'test_csv/output2.csv'
+    def output_csv(self,base_path):
+        # 定义要处理的列表
+        lists = [
+            self.player_actions['upper'],
+            self.player_boxes['upper'],
+            self.player_actions['lower'],
+            self.player_boxes['lower'],
+            self.landing,
+            self.ball_locations,
+            self.rally_cnt_list,  # bug
+            self.frame_cnt,
+            self.human_realbox_list,
+            self.ball_realbox_list
+        ]
+        max_length = len(self.frame_cnt)
+        # 遍历所有列表并填充到相同长度
+        for lst in lists:
+            lst += [[]] * (max_length - len(lst))
+        dir_name, base_file = os.path.split(base_path)
+        name, ext = os.path.splitext(base_file)
+        counter = 1
+        csv_path = base_path
+        while os.path.exists(csv_path):
+            csv_path = os.path.join(dir_name, f"{name}{counter}{ext}")
+            counter += 1
+        # 写入CSV文件
         with open(csv_path, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['upper_action', 'upper_box','lower_action', 'lower_box','ball_sate','ball_location', 'rally_cnt','frame','real_human','real_ball'])  # 写入表头
-            for row in zip(list1, list2, list3, list4, list5,list6, list7,list8,list9,list10):
+            writer.writerow(['upper_action', 'upper_box', 'lower_action', 'lower_box',
+                             'ball_state', 'ball_location', 'rally_cnt', 'frame',
+                             'real_human', 'real_ball'])  # 写入表头
+            # 通过zip将所有列表打包并写入CSV文件
+            for row in zip(*lists):
                 writer.writerow(row)
         return csv_path
 

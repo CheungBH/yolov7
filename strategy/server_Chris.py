@@ -54,7 +54,8 @@ class ServeChecker:
     '''
     def check_serve(self):
         if self.check_action():
-            self.flag = True
+            if self.actions[self.serve_side][-1] != 'overhead':
+                self.flag = True
 
     def process(self, boxes, actions):
         lower_appended, upper_appended = False, False
@@ -70,7 +71,7 @@ class ServeChecker:
                     self.boxes["upper"].append(box)
                     upper_appended = True
         '''
-        if len(self.boxes[self.serve_side])>0:
+        if len(self.boxes[self.serve_side]):
             self.find_serve_position(self.boxes[self.serve_side][-1])
         '''
         if len(self.actions[self.serve_side]) > self.recent_times:

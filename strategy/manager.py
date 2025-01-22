@@ -1,7 +1,6 @@
 from .rally import RallyChecker
 from .server_Chris import ServeChecker
 
-
 class StrategyManager:
     def __init__(self, check_stage="serve", **kwargs):
         self.check_stage = check_stage
@@ -20,8 +19,10 @@ class StrategyManager:
         elif self.check_stage == "highlight":
             self.highlight_update_line(lines)
 
-    def process(self, ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame,words,human_realbox,ball_realbox):
+    def process(self, ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame,words,human_realbox,ball_realbox,csv_path):
         if classifier_status == 'highlight':
+            if self.check_stage == 'rally':
+                self.rally_checker.output_csv(base_path = csv_path)
             self.check_stage = 'serve'
             if hasattr(self.serve_checker, "serve_position"):
                 # self.previous_position = self.serve_checker.serve_position
@@ -39,7 +40,10 @@ class StrategyManager:
             else:
                 self.serve_checker.process(humans_box, humans_action)
         elif self.check_stage == 'rally':
+            self.update_line(lines)
+            self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action,lines,frame,words,human_realbox,ball_realbox)
 
+            '''
             if  self.rally_checker.end_situation == "Down net":
                 self.check_stage = "serve"
                 self.previous_position = self.serve_checker.serve_position
@@ -50,7 +54,7 @@ class StrategyManager:
             else:
                 self.update_line(lines)
                 self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action,lines,frame,words,human_realbox,ball_realbox)
-
+            '''
 
     def get_box(self):
         if self.check_stage == "serve":

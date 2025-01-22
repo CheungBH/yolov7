@@ -54,7 +54,7 @@ class TopViewProcessor:
                 feet_pos = np.array([(box[0] + (box[2] - box[0]) / 2), box[3]]).reshape((1, 1, 2))
                 feet_court_pos = cv2.perspectiveTransform(feet_pos, inv_mats[-1]).reshape(-1)
                 self.position[idx].append(feet_court_pos)
-
+                frame = cv2.circle(frame,(int(self.position[idx][-1][0]),int(self.position[idx][-1][-1])), 45, (0, 0, 255), -1)
 
             # self.inv_mats
             # positions_1 = []
@@ -63,7 +63,7 @@ class TopViewProcessor:
             # for i, box in enumerate(player_1_boxes):
             # feet_pos = np.array([(player1_box[0] + (player1_box[2] - player1_box[0]) / 2).item(), player1_box[3].item()]).reshape((1, 1, 2))
             # feet_court_pos = cv2.perspectiveTransform(feet_pos, inv_mats[-1]).reshape(-1)
-            # self.position1.append(feet_court_pos)
+              # self.position1.append(feet_court_pos)
             # mask = []
             # # Top player feet locations
             # # for i, box in enumerate(player_2_boxes):
@@ -74,14 +74,8 @@ class TopViewProcessor:
             # mask.append(True)
 
             # Smooth both feet locations
-            window = 7 if len(self.position[0]) > 7 else len(self.position[0])
-            if window >= 7:
-                positions = np.array(self.position)
-                for position in positions:
-                    smoothed = np.zeros_like(position)
-                    smoothed[:,0] = signal.savgol_filter(position[:,0], window, 2)
-                    smoothed[:,1] = signal.savgol_filter(position[:,1], window, 2)
-                    frame = cv2.circle(frame, (int(smoothed[-1][0]), int(smoothed[-1][1])), 45, (0, 0, 255), -1)
+
+
 
 
                 # positions_1 = np.array(self.position1)

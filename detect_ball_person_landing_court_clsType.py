@@ -37,13 +37,14 @@ def detect(save_img=False):
     top_view_frame_list = []
     speed_list = []
     heatmap_list = []
+    check_stage_list=[]
 
     classifier_path = "/media/hkuit164/Backup/yolov7/datasets/ball_combine/highlight/highlight.pth"
     model_cfg = "/".join(classifier_path.split("/")[:-1]) + "/model_cfg.yaml"
     label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
     highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
 
-    landing_path = "datasets/ball_combine/landing_model/AdaBoost_cfg_model.joblib"
+    landing_path = "datasets/ball_combine/landing_model/Ada.joblib"
     ML_classes = ["flying", "landing"]
     joblib_model = joblib.load(landing_path)
 
@@ -85,12 +86,12 @@ def detect(save_img=False):
     if half:
         human_model.half()  # to FP16
 
-    mask_points = []
+    mask_points = []#[(644, 394), (1282, 394), (1383, 659), (548, 657)]
     if opt.masks:
         mask_points_str = opt.masks#"374 133 949 143 1152 584 124 582"
         mask_pre = mask_points_str[0].split(' ')
         mask_points = [(int(mask_pre[0]),int(mask_pre[1])),(int(mask_pre[2]),int(mask_pre[3])),(int(mask_pre[4]),int(mask_pre[5])),(int(mask_pre[6]),int(mask_pre[7]))]
-    click_type = 'inner' #click_type = "inner/detect"
+    click_type = 'detect' #click_type = "inner/detect"
     keep_court = False
 
     def click_points():
@@ -272,7 +273,8 @@ def detect(save_img=False):
             print(f'{s}Done. ({elapsed_time:.3f}ms)')
         human_realbox = top_view.get_player_location()
         ball_realbox = top_view.get_ball_location()
-        strategies.process(ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame, words, human_realbox, ball_realbox)
+        csv_path = 'test_csv/gameset1.csv'
+        strategies.process(ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame, words, human_realbox, ball_realbox,csv_path)
         # strategies.update_line(lines)
 
         highlight_classifier.visualize(im0)
