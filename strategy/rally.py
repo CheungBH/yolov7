@@ -14,17 +14,17 @@ class RallyChecker:
         self.bounce = defaultdict(list)
         self.player_boxes = defaultdict(list)
         self.player_actions = defaultdict(list)
-        self.middle_upper_y, self.middle_lower_y = central_y-60, central_y+30
+        self.middle_upper_y, self.middle_lower_y = central_y-60, central_y+20 #灰色球场的参数
         self.central_y, self.central_x = central_y, central_x
         self.top_y, self.bottom_y = top_y,bottom_y
         self.max_no_return_duration = 20
-        self.down_net_duration = 10
+        self.down_net_duration = 20
         self.down_net_threshold = 0.8
         self.rally_threshold = 0
         self.rally_cnt = 0
         self.current_ball_towards = ball_init_toward
         self.current_ball_position = ball_last_hit
-        self.recent_ball = 10
+        self.recent_ball = 10 #最近40球
         self.max_ball_change_directio_pixel = 2
         self.ball_changing_max_threshold = 0.5
         self.rally_change_threshold = 3
@@ -42,7 +42,7 @@ class RallyChecker:
 
     def update_line(self, central_x, central_y):
         self.central_x, self.central_y = int(central_x), int(central_y)
-        self.middle_upper_y,self.middle_lower_y = central_y-60, central_y+30
+        self.middle_upper_y,self.middle_lower_y = central_y-55, central_y+30 #会updata，不是300-55
 
     def check_status(self, status, key):
         state_ls = [i == key for i in status]
@@ -50,34 +50,52 @@ class RallyChecker:
         return ratio >= 0.5
 
     def update_ball_status(self, ball_locations):
-        ball_location = "lower" if ball_locations[1] > self.central_y else "upper"
+        #有(-1,-1)影响
+        ball_location = "lower" if ball_locations[1] > self.middle_upper_y else "upper" if ball_locations[1] != -1 else "None" #ball_locations:[x,y],还有(-1,-1)
         self.ball_positions.append(ball_location)
-        recent_ball_position = self.ball_positions[-self.recent_ball:]
+        recent_ball_position = self.ball_positions[-self.recent_ball:] #最近recent_ball个球位置
 
-        recent_ball_locations = self.ball_locations[-self.recent_ball:]
+        recent_ball_locations = self.ball_locations[-self.recent_ball:] #最近recent_ball个球坐标
         ball_y_changing = [recent_ball_locations[idx+1][1] - recent_ball_locations[idx][1]
                            for idx in range(self.recent_ball-1)]
-        ball_change_over_threshold = [abs(y_change) > self.max_ball_change_directio_pixel
+        ball_change_over_threshold = [abs(y_change) > self.max_ball_change_directio_pixel # =2
                                      for y_change in ball_y_changing]
         ball_y_changing = [0 if abs(y_change) < self.max_ball_change_directio_pixel else
                            y_change for y_change in ball_y_changing]
         ball_y_changing = ["up" if y_change < 0 else "down" for y_change in ball_y_changing]
-        if ball_change_over_threshold:
-            ball_position_upper_flag = self.check_status(recent_ball_position, "upper")
-            # ball_position_lower_flag = self.check_status(recent_ball_position, "lower")
-            current_ball_position = "upper" if ball_position_upper_flag else "lower"
+        # if ball_change_over_threshold:
 
-            ball_towards_up = self.check_status(ball_y_changing, "up")
-            self.current_ball_towards = "up" if ball_towards_up else "down"
+        ball_position_upper_flag = self.check_status(recent_ball_position, "upper")
+        ball_position_lower_flag = self.check_status(recent_ball_position, "lower")
+        if ball_position_upper_flag:
+            current_ball_position = "upper"
+        elif ball_position_lower_flag:
+            current_ball_position = "lower"
+        else:
+            current_ball_position = self.ball_position
 
-            if self.current_ball_towards == "up" and current_ball_position == "upper" and self.ball_position == "lower":
-                self.rally_cnt += 1
-                self.ball_position = "upper"
-            elif self.current_ball_towards == "down" and current_ball_position == "lower" and self.ball_position == "upper":
-                self.rally_cnt += 1
-                self.ball_position = "lower"
-            else:
-                self.ball_position = current_ball_position
+        # current_ball_position = "upper" if ball_position_upper_flag else "lower"
+
+        ball_towards_up = self.check_status(ball_y_changing, "up") #ball_y_changing里有超过50% 的"up"就True
+        self.current_ball_towards = "up" if ball_towards_up else "down"
+
+        if current_ball_position == "upper" and self.ball_position == "lower":
+            self.rally_cnt += 1
+            self.ball_position = "upper"
+        elif current_ball_position == "lower" and self.ball_position == "upper":
+            self.rally_cnt += 1
+            self.ball_position = "lower"
+        else:
+            self.ball_position = current_ball_position
+
+            # if self.current_ball_towards == "up" and current_ball_position == "upper" and self.ball_position == "lower":
+            #     self.rally_cnt += 1
+            #     self.ball_position = "upper"
+            # elif self.current_ball_towards == "down" and current_ball_position == "lower" and self.ball_position == "upper":
+            #     self.rally_cnt += 1
+            #     self.ball_position = "lower"
+            # else:
+            #     self.ball_position = current_ball_position
 
 
     def check_rally_status(self):
@@ -165,7 +183,6 @@ class RallyChecker:
                 landing_frame_cnt.append(frame_cnt[i]-5)
         return landing_frame_cnt
 
-
     def output_csv(self,base_path):
         # 定义要处理的列表
         lists = [
@@ -191,7 +208,6 @@ class RallyChecker:
         while os.path.exists(csv_path):
             csv_path = os.path.join(dir_name, f"{name}{counter}{ext}")
             counter += 1
-        # 写入CSV文件
         with open(csv_path, mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['upper_action', 'upper_box', 'lower_action', 'lower_box',
@@ -200,7 +216,7 @@ class RallyChecker:
             # 通过zip将所有列表打包并写入CSV文件
             for row in zip(*lists):
                 writer.writerow(row)
-        return csv_path
+
 
     def process(self, ball_appears, ball_locations, player_box, player_action,lines,frame_cnt,words,human_realbox,ball_realbox):#frame_cnt
         self.balls_existing.append(ball_appears)

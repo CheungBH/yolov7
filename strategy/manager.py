@@ -42,7 +42,6 @@ class StrategyManager:
         elif self.check_stage == 'rally':
             self.update_line(lines)
             self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action,lines,frame,words,human_realbox,ball_realbox)
-
             '''
             if  self.rally_checker.end_situation == "Down net":
                 self.check_stage = "serve"

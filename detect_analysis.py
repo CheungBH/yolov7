@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 from pathlib import Path
 from strategy.manager import StrategyManager
@@ -19,8 +20,9 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 from detect_with_ML import Queue
 from strategy.csv_analysis import main as csv_main
 
+#begin_with = "serve", "rally"
 serve_side, serve_position = "lower", "right"
-begin_with = "rally"
+begin_with = "serve"
 ball_locations_list=[]
 
 if serve_side == 'lower':
@@ -38,18 +40,18 @@ def detect(save_img=False):
     speed_list = []
     heatmap_list = []
 
-    classifier_path = "/media/hkuit164/Backup/yolov7/datasets/ball_combine/highlight/highlight.pth"
+    classifier_path = "models\models1211\highlight/highlight.pth"
     model_cfg = "/".join(classifier_path.split("/")[:-1]) + "/model_cfg.yaml"
     label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
-    highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
+    highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cpu")
 
-    landing_path = "datasets/ball_combine/landing_model/AdaBoost_cfg_model.joblib"
+    landing_path = "models\models1211\landing_model/AdaBoost_cfg_model.joblib"
     ML_classes = ["flying", "landing"]
     joblib_model = joblib.load(landing_path)
 
-    x_regression_path = "datasets/ball_combine/regression_model/Ridge_modelx.joblib"
+    x_regression_path = "models\models1211/regression_model/Ridge_modelx.joblib"
     x_regressor = joblib.load(x_regression_path)
-    y_regression_path = "datasets/ball_combine/regression_model/Ridge_modely.joblib"
+    y_regression_path = "models\models1211/regression_model/Ridge_modely.joblib"
     y_regressor = joblib.load(y_regression_path)
 
     source, view_img, save_txt, imgsz, trace = opt.source, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
@@ -66,6 +68,7 @@ def detect(save_img=False):
     set_logging()
     device = select_device(opt.device)
     half = device.type != 'cpu'  # half precision only supported on CUDA
+    # output_csv_file = os.path.join(opt.source.split(".")[0]) + ".csv"
 
     # Load model
     ball_model = attempt_load(ball_weights, map_location=device)  # load FP32 model
@@ -91,7 +94,7 @@ def detect(save_img=False):
         mask_points_str = opt.masks#"374 133 949 143 1152 584 124 582"
         mask_pre = mask_points_str[0].split(' ')
         mask_points = [(int(mask_pre[0]),int(mask_pre[1])),(int(mask_pre[2]),int(mask_pre[3])),(int(mask_pre[4]),int(mask_pre[5])),(int(mask_pre[6]),int(mask_pre[7]))]
-    click_type = 'inner'
+    click_type = 'detect'
     keep_court = False
 
     def click_points():
@@ -129,6 +132,10 @@ def detect(save_img=False):
     init_lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points)
     central_y, central_x = int((init_lines[9] + init_lines[11])//2), int((init_lines[-12] + init_lines[-10])//2)
     # rally_checker = RallyChecker(central_x=int(central_x), central_y=int(central_y))
+    save_tv = False
+    if opt.topview_path:
+        save_tv = True
+        tv_writer = cv2.VideoWriter(opt.topview_path, cv2.VideoWriter_fourcc(*'XVID'), 12, (480, 640))
 
     strategies = StrategyManager(check_stage=begin_with, serve_side=serve_side,
                                  serve_position=serve_position, ball_last_hit=ball_last_hit,
@@ -332,6 +339,9 @@ def detect(save_img=False):
             frame_list = frame_list[1:]
 
             cv2.imshow("Top View", top_view_frame_list[0])
+            tv_img = top_view_frame_list[0]
+            if save_tv:
+                tv_writer.write(tv_img)
             top_view_frame_list = top_view_frame_list[1:]
 
             cv2.imshow("Speed", speed_list[0])
@@ -387,17 +397,19 @@ def detect(save_img=False):
 
 
     print(f'Done. ({time.time() - t0:.3f}s)')
-    csv_file = strategies.rally_checker.output_csv()
-    csv_main(csv_file,opt.source)
+    strategies.rally_checker.output_csv(opt.output_csv_file)
+    if save_tv:
+        tv_writer.release()
+    # csv_main(opt.output_csv_file,opt.source)
 
 
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--ball_weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
-    parser.add_argument('--human_weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='inference/images', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--ball_weights', nargs='+', type=str, default='models\models1211/ball/best.pt', help='model.pt path(s)')
+    parser.add_argument('--human_weights', nargs='+', type=str, default='models\models1211/human/best.pt', help='model.pt path(s)')
+    parser.add_argument('--source', type=str, default="D:\Ai_tennis\Source\WholeGame\Junyi Yang/20241029_wholeGame_yjy_1.mp4", help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--ball-thres', type=float, default=0.5, help='ball confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
@@ -409,6 +421,8 @@ if __name__ == '__main__':
     parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
+    parser.add_argument("--output_csv_file", default="output.csv")
+    parser.add_argument("--topview_path", default="")
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
     parser.add_argument('--project', default='runs/detect', help='save results to project/name')

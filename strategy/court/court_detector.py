@@ -3,7 +3,10 @@ import cv2
 import os
 from sympy import Line
 from itertools import combinations
-from .court_reference import CourtReference
+try:
+    from .court_reference import CourtReference
+except:
+    from court_reference import CourtReference
 import scipy.signal as sp
 
 try:
@@ -16,13 +19,14 @@ class CourtDetector:
   """
   Detecting and tracking court in frame
   """
-  def __init__(self, verbose=0, param_path=""):
+  def __init__(self, verbose=0, param_path="", gray_thresh=140, court_path='strategy/court/court_reference.png'):
+    self.gray_thresh = gray_thresh
     self.param_path = param_path
     self.verbose = verbose
     self.colour_threshold = 200
     self.dist_tau = 3
     self.intensity_threshold = 40
-    self.court_reference = CourtReference()
+    self.court_reference = CourtReference(court_path)
     self.v_width = 0
     self.v_height = 0
     self.frame = None
@@ -59,6 +63,15 @@ class CourtDetector:
           detect_fn = self.detect_court_with_inner_points
       return detect_fn(**kwargs)
 
+  def save_detect_tmp(self, folder):
+      os.makedirs(folder, exist_ok=True)
+      cv2.imwrite(os.path.join(folder, "gray_detect.jpg"), self.gray)
+      cv2.imwrite(os.path.join(folder, "filtered_detect.jpg"), self.filtered)
+
+  def save_track_tmp(self, folder):
+      os.makedirs(folder, exist_ok=True)
+      # cv2.imwrite(os.path.join(folder, "gray_detect.jpg"), self.gray)
+      # cv2.imwrite(os.path.join(folder, "filtered_detect.jpg"), self.filtered)
 
   def detect(self, frame, verbose=0, mask_points=[]):
     """
@@ -73,13 +86,13 @@ class CourtDetector:
     self.frame = frame
     self.v_height, self.v_width = frame.shape[:2]
     # Get binary image from the frame
-    self.gray = self._threshold(frame, thresh=140)
+    self.gray = self._threshold(frame, thresh=self.gray_thresh)
 
     # Filter pixel using the court known structure
-    filtered = self._filter_pixels(self.gray)
+    self.filtered = self._filter_pixels(self.gray)
 
     # Detect lines using Hough transform
-    horizontal_lines, vertical_lines = self._detect_lines(filtered)
+    horizontal_lines, vertical_lines = self._detect_lines(self.filtered)
 
     # Find transformation from reference court to frame`s court
     if os.path.exists(self.param_path):

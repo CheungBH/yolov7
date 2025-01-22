@@ -18,7 +18,6 @@ from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 from detect_with_ML import Queue
 
-
 serve_side, serve_position = "lower", "right"
 begin_with = "serve"
 ball_locations_list=[]
@@ -42,7 +41,8 @@ def detect(save_img=False):
     classifier_path = "/media/hkuit164/Backup/yolov7/datasets/ball_combine/highlight/highlight.pth"
     model_cfg = "/".join(classifier_path.split("/")[:-1]) + "/model_cfg.yaml"
     label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
-    highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
+    highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0") #"cuda:0"
+
 
     landing_path = "datasets/ball_combine/landing_model/Ada.joblib"
     ML_classes = ["flying", "landing"]
@@ -86,12 +86,16 @@ def detect(save_img=False):
     if half:
         human_model.half()  # to FP16
 
-    mask_points = []#[(644, 394), (1282, 394), (1383, 659), (548, 657)]
-    if opt.masks:
-        mask_points_str = opt.masks#"374 133 949 143 1152 584 124 582"
+
+    #click_type = "inner/detect"
+    mask_points_str = opt.masks  # "374,133 949,143 1152,584 124,582"
+    if mask_points_str:
         mask_pre = mask_points_str[0].split(' ')
-        mask_points = [(int(mask_pre[0]),int(mask_pre[1])),(int(mask_pre[2]),int(mask_pre[3])),(int(mask_pre[4]),int(mask_pre[5])),(int(mask_pre[6]),int(mask_pre[7]))]
-    click_type = 'detect' #click_type = "inner/detect"
+        mask_points = [(int(mask_pre[0]), int(mask_pre[1])), (int(mask_pre[2]), int(mask_pre[3])),
+                       (int(mask_pre[4]), int(mask_pre[5])), (int(mask_pre[6]), int(mask_pre[7]))]
+    else:
+        mask_points = []
+    click_type = 'detect'
     keep_court = False
 
     def click_points():
@@ -120,6 +124,8 @@ def detect(save_img=False):
     #mask_points = []
     cap = cv2.VideoCapture(source)
     ret, img = cap.read()
+    # h, w = img.shape[:2]
+    # img = cv2.resize(img, (h/2, w/2))
 
     if not mask_points:
         click_points()
@@ -393,9 +399,9 @@ def detect(save_img=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--ball_weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
-    parser.add_argument('--human_weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='inference/images', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--ball_weights', nargs='+', type=str, default='models\models1211/ball/best.pt', help='model.pt path(s)')
+    parser.add_argument('--human_weights', nargs='+', type=str, default='models\models1211/human/best.pt', help='model.pt path(s)')
+    parser.add_argument('--source', type=str, default='video/01.mp4', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--ball-thres', type=float, default=0.5, help='ball confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
@@ -413,7 +419,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--no-trace', action='store_true', help='don`t trace model')
-    parser.add_argument('--masks',default='',nargs='+', help='mask')
+    parser.add_argument('--masks',default='',nargs='+', help='mask') #"310 162 938 171 1147 601 140 591"
     opt = parser.parse_args()
     print(opt)
     #check_requirements(exclude=('pycocotools', 'thop'))
