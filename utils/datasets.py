@@ -373,6 +373,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 elif p.is_file():  # file
                     with open(p, 'r') as t:
                         t = t.read().strip().splitlines()
+                        set_folder = "/".join(t[0].split("/")[-3:-1])
+                        t = [os.path.join(os.path.dirname(path), set_folder, os.path.basename(file)) for file in t]
                         parent = str(p.parent) + os.sep
                         f += [x.replace('./', parent) if x.startswith('./') else x for x in t]  # local to global path
                         # f += [p.parent / x.lstrip(os.sep) for x in t]  # local to global path (pathlib)

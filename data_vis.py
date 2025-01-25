@@ -1,7 +1,9 @@
 import cv2
 import numpy as np
 from pathlib import Path
+import yaml
 
+colors = [(0, 255, 0), (255, 0, 0), (0, 0, 255), (255, 0, 255)]
 
 def read_label_file(label_path):
     with open(label_path, 'r') as f:
@@ -12,10 +14,8 @@ def read_label_file(label_path):
 
 def read_cls_file(file_path):
     with open(file_path, 'r') as file:
-        content = file.read()
-        if content.endswith('\n'):
-            content = content[:-2]
-    return content.split('\n')
+        labels = yaml.load(file.read(), yaml.FullLoader)["names"]
+    return labels
 
 
 def draw_boxes(img, labels, class_names):
@@ -29,7 +29,7 @@ def draw_boxes(img, labels, class_names):
         x2 = int((x_center + box_w / 2) * w)
         y2 = int((y_center + box_h / 2) * h)
 
-        color = (0, 255, 0)
+        color = colors[cls]
         cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
 
         text = class_names[cls]
@@ -73,8 +73,8 @@ def visualize_labeled_data(image_folder, label_folder, class_names):
     cv2.destroyAllWindows()
 
 
-image_folder = "/media/hkuit164/Backup/yolov7ps/yolov7/datasets/cls_pose/images/train"
-label_folder = "/media/hkuit164/Backup/yolov7ps/yolov7/datasets/cls_pose/labels/train"
-class_path = "/media/hkuit164/Backup/yolov7ps/yolov7/datasets/cls_pose/classes.txt"
+image_folder = r"D:\Tennis\tasks\general\yolopose_lr4cls\data\yolopose_lr4cls\images\train"
+label_folder = r"D:\Tennis\tasks\general\yolopose_lr4cls\data\yolopose_lr4cls\labels\train"
+class_path = r"D:\Tennis\tasks\general\yolopose_lr4cls\data\yolopose_lr4cls\pose.yaml"
 
 visualize_labeled_data(image_folder, label_folder, class_names=read_cls_file(class_path))

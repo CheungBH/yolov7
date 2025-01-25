@@ -74,7 +74,7 @@ def plot_one_box(x, im, color=None, label=None, line_thickness=3, kpt_label=Fals
     cv2.rectangle(im, c1, c2, color, thickness=tl*1//3, lineType=cv2.LINE_AA)
     if label:
         if len(label.split(' ')) > 1:
-            label = label.split(' ')[-1]
+            # label = label.split(' ')[-1]
             tf = max(tl - 1, 1)  # font thickness
             t_size = cv2.getTextSize(label, 0, fontScale=tl / 6, thickness=tf)[0]
             c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
