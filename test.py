@@ -82,6 +82,10 @@ def test(data,
         is_coco = data.endswith('coco.yaml') or data.endswith('coco_kpts.yaml')
         with open(data) as f:
             data = yaml.safe_load(f)
+            # data = yaml.load(f, Loader=yaml.SafeLoader)
+            data_root = os.path.dirname(opt.data)
+            data["train"] = os.path.join(data_root, "train.txt")
+            data["val"] = os.path.join(data_root, "val.txt")
     check_dataset(data)  # check
     nc = 1 if single_cls else int(data['nc'])  # number of classes
     iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
@@ -130,7 +134,7 @@ def test(data,
                 model.model[-1].flip_test = False
                 fuse1 = (out + out_flip)/2.0
                 out = torch.cat((out,fuse1), axis=1)
-            out = out[...,:6] if not kpt_label else out
+            out = out[...,:5+nc] if not kpt_label else out
             targets = targets[..., :6] if not kpt_label else targets
             t0 += time_synchronized() - t
 
