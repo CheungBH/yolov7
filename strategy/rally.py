@@ -4,10 +4,6 @@ import csv
 import os
 
 
-
-
-
-
 class RallyChecker:
     def __init__(self, ball_init_toward="up", ball_last_hit="lower", central_x=640, central_y=300,top_y=0,bottom_y=720,
                  serve_condition="", **kwargs):

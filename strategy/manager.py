@@ -1,6 +1,8 @@
 from .rally import RallyChecker
 from .server_Chris import ServeChecker
 
+
+
 class StrategyManager:
     def __init__(self, check_stage="serve", **kwargs):
         self.check_stage = check_stage
