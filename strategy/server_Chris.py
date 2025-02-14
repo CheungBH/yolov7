@@ -6,7 +6,7 @@ class ServeChecker:
         self.actions = defaultdict(list)
         self.boxes = defaultdict(list)
         self.flag = False
-        self.recent_times = 5
+        self.recent_times = 3
         self.thresh = 0.8
         self.position_thresh = 0.8
         self.serve_side = serve_side

@@ -19,7 +19,8 @@ class StrategyManager:
         elif self.check_stage == "highlight":
             self.highlight_update_line(lines)
 
-    def process(self, ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame,words,human_realbox,ball_realbox,csv_path):
+    def process(self, ball_exist, ball_center, pred_ball_location, humans_box, humans_action,classifier_status, lines,frame,words,human_realbox,ball_realbox,csv_path):
+
         if classifier_status == 'highlight':
             if self.check_stage == 'rally':
                 self.rally_checker.output_csv(base_path = csv_path)
@@ -36,12 +37,13 @@ class StrategyManager:
                 self.args["serve_condition"] = "First serve" if self.serve_checker.serve_cnt == 1 else "Second serve"
                 self.rally_checker = RallyChecker(**self.args)
                 self.update_line(lines)
-                self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action,lines,frame,words,human_realbox,ball_realbox)
+                self.rally_checker.process(ball_exist, ball_center, pred_ball_location, humans_box, humans_action,lines,frame,words,human_realbox,ball_realbox)
             else:
                 self.serve_checker.process(humans_box, humans_action)
         elif self.check_stage == 'rally':
             self.update_line(lines)
-            self.rally_checker.process(ball_exist, ball_center, humans_box, humans_action,lines,frame,words,human_realbox,ball_realbox)
+            self.rally_checker.process(ball_exist, ball_center, pred_ball_location, humans_box, humans_action, lines, frame, words,
+                                       human_realbox, ball_realbox)
             '''
             if  self.rally_checker.end_situation == "Down net":
                 self.check_stage = "serve"

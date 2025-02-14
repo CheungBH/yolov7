@@ -5,17 +5,32 @@ from pathlib import Path
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
-from numpy import random
-
+import joblib
+import numpy as np
+from strategy.rally_checker import RallyChecker
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
-
+from detect_with_ML import Queue
 
 def detect(save_img=False):
+    words = "Pending"
+    adjacent_frame = 2
+    regression_frame = 3
+    frame_list = []
+
+    landing_path = r"D:\Ai_tennis\Landing\rough_landing_model\model_0202\GBDT_cfg_model.joblib"
+    ML_classes = ["flying", "landing"]
+    joblib_model = joblib.load(landing_path)
+
+    x_regression_path = "models\models1211/regression_model/Ridge_modelx.joblib"
+    x_regressor = joblib.load(x_regression_path)
+    y_regression_path = "models\models1211/regression_model/Ridge_modely.joblib"
+    y_regressor = joblib.load(y_regression_path)
+
     source, view_img, save_txt, imgsz, trace = opt.source, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
     ball_weights, human_weights = opt.ball_weights, opt.human_weights
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
@@ -30,6 +45,8 @@ def detect(save_img=False):
     set_logging()
     device = select_device(opt.device)
     half = device.type != 'cpu'  # half precision only supported on CUDA
+
+    rally_checker = RallyChecker()
 
     # Load model
     ball_model = attempt_load(ball_weights, map_location=device)  # load FP32 model
@@ -74,7 +91,18 @@ def detect(save_img=False):
     old_img_b = 1
 
     t0 = time.time()
-    for path, img, im0s, vid_cap in dataset:
+
+    BoxProcessor = Queue(max_length=adjacent_frame * 2 + 1, h=dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
+                         w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    BoxRegProcessor = Queue(max_length=regression_frame, h=dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
+                            w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+    play_duration = 3
+    # play_threshold = 0.8
+
+    #这一行是初始化的结束
+    for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
+        humans_box, humans_action = [], []
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -98,13 +126,14 @@ def detect(save_img=False):
         t2 = time_synchronized()
 
         # Apply NMS
-        ball_pred = non_max_suppression(ball_pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
-        human_pred = non_max_suppression(human_pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
+        ball_pred = non_max_suppression(ball_pred, opt.ball_thres, opt.iou_thres, classes=opt.classes,agnostic=opt.agnostic_nms)
+        human_pred = non_max_suppression(human_pred, opt.human_thres, opt.iou_thres, classes=opt.classes,agnostic=opt.agnostic_nms)
         t3 = time_synchronized()
 
         preds = [ball_pred, human_pred]
+        types = ["ball", "humans"]
         # colors = [ball_color, human_colors]
-        for pred, color, name in zip(preds, colors, names):
+        for pred, color, name, typ in zip(preds, colors, names, types):
         # Process detections
             for i, det in enumerate(pred):  # detections per image
                 if webcam:  # batch_size >= 1
@@ -127,6 +156,13 @@ def detect(save_img=False):
 
                     # Write results
                     for *xyxy, conf, cls in reversed(det):
+                        if typ == "ball":
+                            ball_exist = True
+                            ball_center = ([(xyxy[0].tolist() + xyxy[2].tolist()) / 2,
+                                            (xyxy[1].tolist() + xyxy[3].tolist()) / 2])
+                        else:
+                            humans_box.append([i.tolist() for i in xyxy])
+                            humans_action.append(name[int(cls)])
                         if save_txt:  # Write to file
                             xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                             line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
@@ -136,36 +172,76 @@ def detect(save_img=False):
                         if save_img or view_img:  # Add bbox to image
                             label = f'{name[int(cls)]} {conf:.2f}'
                             plot_one_box(xyxy, im0, label=label, color=color[int(cls)], line_thickness=1)
+                else:
+                    ball_exist = False
+                    ball_center = (-1, -1)
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
+        BoxProcessor.enqueue(ball_pred[0])
+        BoxRegProcessor.enqueue(ball_pred[0])
 
-            # Stream results
-        if view_img:
-            cv2.imshow(str(p), im0)
-            cv2.waitKey(0)  # 1 millisecond
+        if BoxRegProcessor.check_enough():
+            ball_locations = BoxRegProcessor.get_queue()
+            ball_x = np.array([b[0] for b in ball_locations])
+            ball_x = np.expand_dims(ball_x, axis=0)
+            ball_y = np.array([b[1] for b in ball_locations])
+            ball_y = np.expand_dims(ball_y, axis=0)
+            ball_next_x = x_regressor.predict(ball_x)
+            ball_next_y = y_regressor.predict(ball_y)
+            ball_next_real_x = ball_next_x * dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+            ball_next_real_y = ball_next_y * dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            pred_ball_location = [int(ball_next_real_x[0]), int(ball_next_real_y[0])]
+            cv2.circle(im0, (int(ball_next_real_x[0]), int(ball_next_real_y[0])), 5, (0, 255, 0), -1)
+        else:
+            pred_ball_location = (-1,-1)
 
 
-        # Save results (image with detections)
-        if save_img:
-            if dataset.mode == 'image':
-                cv2.imwrite(save_path, im0)
-                print(f" The image with the result is saved in: {save_path}")
-            else:  # 'video' or 'stream'
-                if vid_path != save_path:  # new video
-                    vid_path = save_path
-                    if isinstance(vid_writer, cv2.VideoWriter):
-                        vid_writer.release()  # release previous video writer
-                    if vid_cap:  # video
-                        fps = vid_cap.get(cv2.CAP_PROP_FPS)
-                        w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                        h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                    else:  # stream
-                        fps, w, h = 30, im0.shape[1], im0.shape[0]
-                        save_path += '.mp4'
-                    vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
-                vid_writer.write(im0)
+        rally_checker.process(ball_exist, ball_center, pred_ball_location, humans_box, humans_action, frame, words)
+        frame_list.append(im0)
+        rally_checker.visualize(im0) #把检测的 h,w 传进去， 绘图
 
+        if idx >= adjacent_frame:
+            if not BoxProcessor.check_enough():
+                words = "Pending"
+            else:
+                ball_locations = BoxProcessor.get_queue()
+                words = ML_classes[
+                    int(joblib_model.predict(np.expand_dims(np.array(ball_locations).flatten(), axis=0))[0])]
+
+            color = (0, 0, 255) if words == "landing" else (0, 255, 0)
+            cv2.putText(im0, words, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+
+            # display_img = frame_list[0]
+            # cv2.imshow(str(p), display_img)
+            # frame_list = frame_list[1:]
+
+                # Stream results
+            if view_img:
+                cv2.imshow(str(p), im0)
+                cv2.waitKey(1)  # 1 millisecond
+
+            # Save results (image with detections)
+            if save_img:
+                if dataset.mode == 'image':
+                    cv2.imwrite(save_path, im0)
+                    print(f" The image with the result is saved in: {save_path}")
+                else:  # 'video' or 'stream'
+                    if vid_path != save_path:  # new video
+                        vid_path = save_path
+                        if isinstance(vid_writer, cv2.VideoWriter):
+                            vid_writer.release()  # release previous video writer
+                        if vid_cap:  # video
+                            fps = vid_cap.get(cv2.CAP_PROP_FPS)
+                            w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                            h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                        else:  # stream
+                            fps, w, h = 30, im0.shape[1], im0.shape[0]
+                            save_path += '.mp4'
+                        vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+                    vid_writer.write(im0)
+
+    rally_checker.output_csv(opt.output_csv_folder, opt.output_csv_file)
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
         #print(f"Results saved to {save_dir}{s}")
@@ -175,12 +251,15 @@ def detect(save_img=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--ball_weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
-    parser.add_argument('--human_weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='inference/images', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--ball_weights', nargs='+', type=str, default=r"models\models1211\ball\best.pt", help='model.pt path(s)')
+    parser.add_argument('--human_weights', nargs='+', type=str, default=r"models\models1211\human\best.pt", help='model.pt path(s)')
+    parser.add_argument('--source', type=str, default=r"source\Grass\20241024_wholeGame_TFF_7_148.mp4", help='source')  # file/folder, 0 for webcam
+    parser.add_argument("--output_csv_folder", default="landing_csv\detect_ball_person")
+    parser.add_argument("--output_csv_file", default="20241024_wholeGame_TFF_7_148.csv")
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
+    parser.add_argument('--ball-thres', type=float, default=0.5, help='ball confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
+    parser.add_argument('--human-thres', type=float, default=0.25, help='human confidence threshold')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')

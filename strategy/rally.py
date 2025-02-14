@@ -19,7 +19,7 @@ class RallyChecker:
         self.top_y, self.bottom_y = top_y,bottom_y
         self.max_no_return_duration = 20
         self.down_net_duration = 20
-        self.down_net_threshold = 0.8
+        self.down_net_threshold = 0.9
         self.rally_threshold = 0
         self.rally_cnt = 0
         self.current_ball_towards = ball_init_toward
@@ -39,10 +39,14 @@ class RallyChecker:
         self.insidecourt_list = []
         self.ball_realbox_list = []
         self.human_realbox_list = []
+        self.middle_upper_y_list = []
+        self.height_width_list = []
+        self.pred_ball_locations = []
 
     def update_line(self, central_x, central_y):
         self.central_x, self.central_y = int(central_x), int(central_y)
-        self.middle_upper_y,self.middle_lower_y = central_y-55, central_y+30 #会updata，不是300-55
+        self.middle_upper_y,self.middle_lower_y = central_y-55, central_y+10 #会updata，不是300-55
+        self.middle_upper_y_list.append(self.middle_upper_y)
 
     def check_status(self, status, key):
         state_ls = [i == key for i in status]
@@ -183,44 +187,89 @@ class RallyChecker:
                 landing_frame_cnt.append(frame_cnt[i]-5)
         return landing_frame_cnt
 
-    def output_csv(self,base_path):
-        # 定义要处理的列表
-        lists = [
-            self.player_actions['upper'],
-            self.player_boxes['upper'],
-            self.player_actions['lower'],
-            self.player_boxes['lower'],
-            self.landing,
-            self.ball_locations,
-            self.rally_cnt_list,  # bug
-            self.frame_cnt,
-            self.human_realbox_list,
-            self.ball_realbox_list
-        ]
+# <<<<<<< Updated upstream
+#     def output_csv(self,base_path):
+#         # 定义要处理的列表
+#         lists = [
+#             self.player_actions['upper'],
+#             self.player_boxes['upper'],
+#             self.player_actions['lower'],
+#             self.player_boxes['lower'],
+#             self.landing,
+#             self.ball_locations,
+#             self.rally_cnt_list,  # bug
+#             self.frame_cnt,
+#             self.human_realbox_list,
+#             self.ball_realbox_list
+#         ]
+#         max_length = len(self.frame_cnt)
+#         # 遍历所有列表并填充到相同长度
+#         for lst in lists:
+#             lst += [[]] * (max_length - len(lst))
+#         dir_name, base_file = os.path.split(base_path)
+#         name, ext = os.path.splitext(base_file)
+#         counter = 1
+#         csv_path = os.path.join(dir_name, f"{name}_{counter}{ext}")
+#         while os.path.exists(csv_path):
+#             csv_path = os.path.join(dir_name, f"{name}_{counter}{ext}")
+#             counter += 1
+#         with open(csv_path, mode='w', newline='') as file:
+#             writer = csv.writer(file)
+#             writer.writerow(['upper_action', 'upper_box', 'lower_action', 'lower_box',
+#                              'ball_state', 'ball_location', 'rally_cnt', 'frame',
+#                              'real_human', 'real_ball'])  # 写入表头
+#             # 通过zip将所有列表打包并写入CSV文件
+#             for row in zip(*lists):
+# =======
+    def output_csv(self, base_path):
+        list1 = self.player_actions['upper']
+        list2 = self.player_boxes['upper']
+        list3 = self.player_actions['lower']
+        list4 = self.player_boxes['lower']
+        list5 = self.landing
+        list6 = self.ball_locations
+        list7 = self.rally_cnt_list #bug
+        list8 = self.frame_cnt
+        list9 = self.human_realbox_list
+        list10 = self.ball_realbox_list
+        list11 = self.middle_upper_y_list
+        list12 = self.height_width_list
+        list13 = self.pred_ball_locations
         max_length = len(self.frame_cnt)
-        # 遍历所有列表并填充到相同长度
-        for lst in lists:
-            lst += [[]] * (max_length - len(lst))
+        list1 += [] * (max_length - len(list1))
+        list2 += [] * (max_length - len(list2))
+        list3 += [] * (max_length - len(list3))
+        list4 += [] * (max_length - len(list4))
+        list5 += [] * (max_length - len(list5))
+        list6 += [] * (max_length - len(list6))
+        list7 += [] * (max_length - len(list7))
+        list8 += [] * (max_length - len(list8))
+        list9 += [] * (max_length - len(list9))
+        list10 += [] * (max_length - len(list10))
+        list11 += [] * (max_length - len(list11))
+        list12 += [] * (max_length - len(list12))
+        list13 += [] * (max_length - len(list13))
+
         dir_name, base_file = os.path.split(base_path)
+
         name, ext = os.path.splitext(base_file)
         counter = 1
         csv_path = os.path.join(dir_name, f"{name}_{counter}{ext}")
         while os.path.exists(csv_path):
             csv_path = os.path.join(dir_name, f"{name}_{counter}{ext}")
             counter += 1
+        # csv_path = output_csv_path
         with open(csv_path, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['upper_action', 'upper_box', 'lower_action', 'lower_box',
-                             'ball_state', 'ball_location', 'rally_cnt', 'frame',
-                             'real_human', 'real_ball'])  # 写入表头
-            # 通过zip将所有列表打包并写入CSV文件
-            for row in zip(*lists):
+            writer.writerow(['upper_action', 'upper_box','lower_action', 'lower_box','ball_state','ball_location', 'rally_cnt','frame','real_human','real_ball','middle_upper_y','height_width', 'pred_ball_location'])  # 写入表头
+            for row in zip(list1, list2, list3, list4, list5,list6, list7,list8,list9,list10,list11,list12,list13):
                 writer.writerow(row)
 
 
-    def process(self, ball_appears, ball_locations, player_box, player_action,lines,frame_cnt,words,human_realbox,ball_realbox):#frame_cnt
+    def process(self, ball_appears, ball_location, pred_ball_location, player_box, player_action,lines,frame_cnt,words,human_realbox,ball_realbox):#frame_cnt
         self.balls_existing.append(ball_appears)
-        self.ball_locations.append(ball_locations)
+        self.ball_locations.append(ball_location)
+        self.pred_ball_locations.append(pred_ball_location)
         self.rally_cnt_list.append(self.rally_cnt)
         self.human_realbox_list.append(human_realbox)
         self.ball_realbox_list.append(ball_realbox)
@@ -260,9 +309,10 @@ class RallyChecker:
 
         if len(self.ball_locations) > self.recent_ball:
             self.check_rally_status()
-            self.update_ball_status(ball_locations)
+            self.update_ball_status(ball_location)
 
     def visualize(self, img):
+        self.height_width_list.append(img.shape[:2])
         h, w = img.shape[:2]
         #cv2.line(img, (self.central_x, 0), (self.central_x, h), (255, 0, 0), 2)
         cv2.line(img, (0, self.central_y), (w, self.central_y), (255, 0, 0), 2)

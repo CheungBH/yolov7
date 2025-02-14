@@ -16,7 +16,7 @@ from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 
 
-adjacent_frame = 3
+adjacent_frame = 2
 regression_frame = 3
 
 from collections import deque

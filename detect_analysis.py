@@ -22,6 +22,7 @@ from strategy.csv_analysis import main as csv_main
 
 #begin_with = "serve", "rally"
 serve_side, serve_position = "lower", "right"
+# serve_side, serve_position = "upper", "right"
 begin_with = "serve"
 ball_locations_list=[]
 
@@ -46,6 +47,7 @@ def detect(save_img=False):
     highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cpu")
 
     landing_path = "models\models1211\landing_model/AdaBoost_cfg_model.joblib"
+    # landing_path = r"D:\Ai_tennis\Landing\rough_landing_model\GBDT_cfg_model.joblib"
     ML_classes = ["flying", "landing"]
     joblib_model = joblib.load(landing_path)
 
@@ -104,6 +106,7 @@ def detect(save_img=False):
                 cv2.circle(img, (x, y), 5, (0, 255, 0), -1)
                 cv2.imshow('image', img)
                 if len(mask_points) > 4:
+                    # cv2.putText(img, "请重新标注四个点",(10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
                     mask_points.pop(0)
                     print(mask_points)
 
@@ -280,7 +283,26 @@ def detect(save_img=False):
             print(f'{s}Done. ({elapsed_time:.3f}ms)')
         human_realbox = top_view.get_player_location()
         ball_realbox = top_view.get_ball_location()
-        strategies.process(ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame, words, human_realbox, ball_realbox)
+
+        BoxProcessor.enqueue(ball_pred[0])
+        BoxRegProcessor.enqueue(ball_pred[0])
+
+        if BoxRegProcessor.check_enough():
+            ball_locations = BoxRegProcessor.get_queue()
+            ball_x = np.array([b[0] for b in ball_locations])
+            ball_x = np.expand_dims(ball_x, axis=0)
+            ball_y = np.array([b[1] for b in ball_locations])
+            ball_y = np.expand_dims(ball_y, axis=0)
+            ball_next_x = x_regressor.predict(ball_x)
+            ball_next_y = y_regressor.predict(ball_y)
+            ball_next_real_x = ball_next_x * dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+            ball_next_real_y = ball_next_y * dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            pred_ball_location = [int(ball_next_real_x[0]), int(ball_next_real_y[0])]
+            cv2.circle(im0, (int(ball_next_real_x[0]), int(ball_next_real_y[0])), 5, (0, 255, 0), -1)
+        else:
+            pred_ball_location = (-1,-1)
+
+        strategies.process(ball_exist, ball_center, pred_ball_location, humans_box, humans_action,classifier_status, lines,frame, words, human_realbox, ball_realbox, "figure")
         # strategies.update_line(lines)
 
         highlight_classifier.visualize(im0)
@@ -299,20 +321,22 @@ def detect(save_img=False):
             speed_list.append(speed_list[-1])
             heatmap_list.append(heatmap_list[-1])
 
-        BoxProcessor.enqueue(ball_pred[0])
-        BoxRegProcessor.enqueue(ball_pred[0])
-
-        if BoxRegProcessor.check_enough():
-            ball_locations = BoxRegProcessor.get_queue()
-            ball_x = np.array([b[0] for b in ball_locations])
-            ball_x = np.expand_dims(ball_x, axis=0)
-            ball_y = np.array([b[1] for b in ball_locations])
-            ball_y = np.expand_dims(ball_y, axis=0)
-            ball_next_x = x_regressor.predict(ball_x)
-            ball_next_y = y_regressor.predict(ball_y)
-            ball_next_real_x = ball_next_x * dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-            ball_next_real_y = ball_next_y * dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-            cv2.circle(im0, (int(ball_next_real_x[0]), int(ball_next_real_y[0])), 10, (0, 255, 0), -1)
+        # 预测放到process之上，是为了给csv加上一列预测值
+        # BoxProcessor.enqueue(ball_pred[0])
+        # BoxRegProcessor.enqueue(ball_pred[0])
+        #
+        # if BoxRegProcessor.check_enough():
+        #     ball_locations = BoxRegProcessor.get_queue()
+        #     ball_x = np.array([b[0] for b in ball_locations])
+        #     ball_x = np.expand_dims(ball_x, axis=0)
+        #     ball_y = np.array([b[1] for b in ball_locations])
+        #     ball_y = np.expand_dims(ball_y, axis=0)
+        #     ball_next_x = x_regressor.predict(ball_x)
+        #     ball_next_y = y_regressor.predict(ball_y)
+        #     ball_next_real_x = ball_next_x * dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        #     ball_next_real_y = ball_next_y * dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        #     pred_ball_location = [ball_next_real_x, ball_next_real_y]
+        #     cv2.circle(im0, (int(ball_next_real_x[0]), int(ball_next_real_y[0])), 5, (0, 255, 0), -1)
 
         if idx >= adjacent_frame:
             if not BoxProcessor.check_enough():
@@ -322,14 +346,14 @@ def detect(save_img=False):
                 words = ML_classes[
                     int(joblib_model.predict(np.expand_dims(np.array(ball_locations).flatten(), axis=0))[0])]
 
-            if words == 'landing' and recent_actions[-1] == 'play':
-                if ball_locations[-4][1] > 0.5:
-                    ball_locations_list.append(1)
-                else:
-                    ball_locations_list.append(0)
-                if len(ball_locations_list) >= 2:
-                    if ball_locations_list[-1] == ball_locations_list [-2]:
-                        cv2.putText(im0, words, (800, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            # if words == 'landing' and recent_actions[-1] == 'play':
+            #     if ball_locations[-4][1] > 0.5:
+            #         ball_locations_list.append(1)
+            #     else:
+            #         ball_locations_list.append(0)
+            #     if len(ball_locations_list) >= 2:
+            #         if ball_locations_list[-1] == ball_locations_list [-2]:
+            #             cv2.putText(im0, words, (800, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
             color = (0, 0, 255) if words == "landing" else (0, 255, 0)
             cv2.putText(im0, words, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
@@ -409,7 +433,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--ball_weights', nargs='+', type=str, default='models\models1211/ball/best.pt', help='model.pt path(s)')
     parser.add_argument('--human_weights', nargs='+', type=str, default='models\models1211/human/best.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default="D:\Ai_tennis\Source\WholeGame\Junyi Yang/20241029_wholeGame_yjy_1.mp4", help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default=r"D:\Ai_tennis\yolov7_main\source\03\03.mp4", help='source')  # file/folder, 0 for webcam
+    parser.add_argument("--output_csv_file", default="output.csv")
+    parser.add_argument("--topview_path", default="")
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--ball-thres', type=float, default=0.5, help='ball confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
@@ -421,8 +447,6 @@ if __name__ == '__main__':
     parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
-    parser.add_argument("--output_csv_file", default="output.csv")
-    parser.add_argument("--topview_path", default="")
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
     parser.add_argument('--project', default='runs/detect', help='save results to project/name')

@@ -280,7 +280,7 @@ def detect(save_img=False):
         human_realbox = top_view.get_player_location()
         ball_realbox = top_view.get_ball_location()
         csv_path = opt.csv_path
-        strategies.process(ball_exist, ball_center, humans_box, humans_action,classifier_status, lines,frame, words, human_realbox, ball_realbox,csv_path)
+        strategies.process(ball_exist, ball_center, pred_ball_location, humans_box, humans_action,classifier_status, lines,frame, words, human_realbox, ball_realbox,csv_path)
         # strategies.update_line(lines)
 
         highlight_classifier.visualize(im0)
@@ -312,7 +312,10 @@ def detect(save_img=False):
             ball_next_y = y_regressor.predict(ball_y)
             ball_next_real_x = ball_next_x * dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
             ball_next_real_y = ball_next_y * dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            pred_ball_location = [int(ball_next_real_x[0]), int(ball_next_real_y[0])]
             cv2.circle(im0, (int(ball_next_real_x[0]), int(ball_next_real_y[0])), 10, (0, 255, 0), -1)
+        else:
+            pred_ball_location = (-1,-1)
 
         if idx >= adjacent_frame:
             if not BoxProcessor.check_enough():

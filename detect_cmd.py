@@ -13,16 +13,22 @@ def click_points(event, x, y, flags, param):
 
 def main():
     # 1. 读取文件夹中的所有 .mp4 文件
-    folder_path = "D:\Ai_tennis\Source/0113_one_point/Clay"
+    # folder_path = r"D:\Ai_tennis\yolov7_main\test_video\Grass"
+    folder_path = r"source\03"
     mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
 
     masks = []
 
     for file in mp4_files:
         video_path = os.path.join(folder_path, file)
+        print(f"video path: {video_path}")
 
         # 2. 读取每个 .mp4 文件的第一帧图像
         cap = cv2.VideoCapture(video_path)
+        #设置要读取的帧号，例如第10帧
+        frame_number = 5
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+        # 读取指定帧
         ret, frame = cap.read()
         cap.release()
 
@@ -34,6 +40,7 @@ def main():
         # param = [points, frame.copy()]  # 将点和帧传递给回调函数
 
         h, w = frame.shape[:2]
+        print(f"width: {w}, height: {h}")
         frame = cv2.resize(frame, (w//resize_ratio, h//resize_ratio))
         param = [points, frame.copy()]
         cv2.imshow('image', frame)
@@ -49,14 +56,15 @@ def main():
         cv2.destroyWindow('image')  # 关闭当前图像窗口
 
     # 3. 对每个视频运行 detect.py
+
     for file, mask in zip(mp4_files, masks):
         mask_str = ' '.join([f'{x}'' ' f'{y}' for x, y in mask])
         cmd = (f'python detect_analysis.py --source {os.path.join(folder_path, file)} --masks "{mask_str}" '  
-               f' --output_csv_file {"test_csv/Clay/" + os.path.join(file.split(".")[0]) + ".csv"} --name newcut'
-               f' --topview_path {"top_view/Clay/" + os.path.join(file.split(".")[0]) + "_2.mp4"}')
+               f' --output_csv_file {"test_csv/" + os.path.join(file.split(".")[0]) + ".csv"} '
+               f' --project runs/detect --name newcut'
+               f' --topview_path {"top_view/" + os.path.join(file.split(".")[0]) + "_2.mp4"}')
         print(cmd)
         subprocess.run(cmd, shell=True)
-
 
 # 4. 把每个文件夹newcut中的视频提取出来
 def extract_video(source_folder, destination_folder):
