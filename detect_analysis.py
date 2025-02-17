@@ -6,6 +6,7 @@ from strategy.manager import StrategyManager
 from strategy.classifier.image_classifier import ImageClassifier
 import cv2
 import torch
+import shutil
 import torch.backends.cudnn as cudnn
 import joblib
 from strategy.court.top_view import TopViewProcessor
@@ -23,7 +24,7 @@ from strategy.csv_analysis import main as csv_main
 #begin_with = "serve", "rally"
 serve_side, serve_position = "lower", "right"
 # serve_side, serve_position = "upper", "right"
-begin_with = "serve"
+begin_with = "rally"
 ball_locations_list=[]
 
 if serve_side == 'lower':
@@ -34,26 +35,26 @@ else:
 
 def detect(save_img=False):
     words = "Pending"
-    adjacent_frame = 3
+    adjacent_frame =4
     regression_frame = 3
     frame_list = []
     top_view_frame_list = []
     speed_list = []
     heatmap_list = []
 
-    classifier_path = "models\models1211\highlight/highlight.pth"
+    classifier_path = "weights/latest_assets/mobilenet/best_acc.pth"
     model_cfg = "/".join(classifier_path.split("/")[:-1]) + "/model_cfg.yaml"
     label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
-    highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cpu")
+    highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
 
-    landing_path = "models\models1211\landing_model/AdaBoost_cfg_model.joblib"
+    landing_path = "weights/latest_assets/latest_landing.joblib"
     # landing_path = r"D:\Ai_tennis\Landing\rough_landing_model\GBDT_cfg_model.joblib"
     ML_classes = ["flying", "landing"]
     joblib_model = joblib.load(landing_path)
 
-    x_regression_path = "models\models1211/regression_model/Ridge_modelx.joblib"
+    x_regression_path = "weights/latest_assets/x_regression.joblib"
     x_regressor = joblib.load(x_regression_path)
-    y_regression_path = "models\models1211/regression_model/Ridge_modely.joblib"
+    y_regression_path = "weights/latest_assets/y_regression.joblib"
     y_regressor = joblib.load(y_regression_path)
 
     source, view_img, save_txt, imgsz, trace = opt.source, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
@@ -70,7 +71,11 @@ def detect(save_img=False):
     set_logging()
     device = select_device(opt.device)
     half = device.type != 'cpu'  # half precision only supported on CUDA
-    # output_csv_file = os.path.join(opt.source.split(".")[0]) + ".csv"
+
+    output_folder = opt.output_folder
+    os.makedirs(output_folder, exist_ok=True)
+    output_csv_file = os.path.join(output_folder, "output.csv")
+    topview_path = os.path.join(output_folder, "top_view.mp4")
 
     # Load model
     ball_model = attempt_load(ball_weights, map_location=device)  # load FP32 model
@@ -96,7 +101,7 @@ def detect(save_img=False):
         mask_points_str = opt.masks#"374 133 949 143 1152 584 124 582"
         mask_pre = mask_points_str[0].split(' ')
         mask_points = [(int(mask_pre[0]),int(mask_pre[1])),(int(mask_pre[2]),int(mask_pre[3])),(int(mask_pre[4]),int(mask_pre[5])),(int(mask_pre[6]),int(mask_pre[7]))]
-    click_type = 'detect'
+    click_type = 'inner'
     keep_court = False
 
     def click_points():
@@ -130,15 +135,14 @@ def detect(save_img=False):
     if not mask_points:
         click_points()
     cap.release()
+    cv2.destroyAllWindows()
 
     court_detector = CourtDetector(mask_points)
     init_lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points)
     central_y, central_x = int((init_lines[9] + init_lines[11])//2), int((init_lines[-12] + init_lines[-10])//2)
     # rally_checker = RallyChecker(central_x=int(central_x), central_y=int(central_y))
-    save_tv = False
-    if opt.topview_path:
-        save_tv = True
-        tv_writer = cv2.VideoWriter(opt.topview_path, cv2.VideoWriter_fourcc(*'XVID'), 12, (480, 640))
+
+    tv_writer = cv2.VideoWriter(topview_path, cv2.VideoWriter_fourcc(*'XVID'), 12, (480, 640))
 
     strategies = StrategyManager(check_stage=begin_with, serve_side=serve_side,
                                  serve_position=serve_position, ball_last_hit=ball_last_hit,
@@ -364,15 +368,14 @@ def detect(save_img=False):
 
             cv2.imshow("Top View", top_view_frame_list[0])
             tv_img = top_view_frame_list[0]
-            if save_tv:
-                tv_writer.write(tv_img)
+            tv_writer.write(tv_img)
             top_view_frame_list = top_view_frame_list[1:]
 
-            cv2.imshow("Speed", speed_list[0])
-            speed_list = speed_list[1:]
-
-            cv2.imshow("Heatmap", heatmap_list[0])
-            heatmap_list = heatmap_list[1:]
+            # cv2.imshow("Speed", speed_list[0])
+            # speed_list = speed_list[1:]
+            #
+            # cv2.imshow("Heatmap", heatmap_list[0])
+            # heatmap_list = heatmap_list[1:]
 
             cv2.waitKey(1)  # 1 millisecond
 
@@ -421,21 +424,21 @@ def detect(save_img=False):
 
 
     print(f'Done. ({time.time() - t0:.3f}s)')
-    strategies.rally_checker.output_csv(opt.output_csv_file)
-    if save_tv:
-        tv_writer.release()
-    # csv_main(opt.output_csv_file,opt.source)
-
-
+    strategies.rally_checker.output_csv(output_csv_file)
+    shutil.copy(source, os.path.join(output_folder, "raw.mp4"))
+    vid_writer.release()
+    shutil.move(save_path, os.path.join(output_folder, "detect.mp4"))
+    tv_writer.release()
+    csv_main(output_csv_file.replace(".csv", "_1.csv"), source, output_folder)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--ball_weights', nargs='+', type=str, default='models\models1211/ball/best.pt', help='model.pt path(s)')
-    parser.add_argument('--human_weights', nargs='+', type=str, default='models\models1211/human/best.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default=r"D:\Ai_tennis\yolov7_main\source\03\03.mp4", help='source')  # file/folder, 0 for webcam
-    parser.add_argument("--output_csv_file", default="output.csv")
-    parser.add_argument("--topview_path", default="")
+    parser.add_argument('--ball_weights', nargs='+', type=str, default='weights/latest_assets/ball.pt', help='model.pt path(s)')
+    parser.add_argument('--human_weights', nargs='+', type=str, default='weights/latest_assets/yolo4cls_lr.pt', help='model.pt path(s)')
+    parser.add_argument('--source', type=str, default=r"D:\Tennis\datasets\raw_videos\general\Highlight1\video_input4.mp4", help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--output_folder', type=str, default="output", help='path to save the output')  # file/folder, 0 for webcam
+
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--ball-thres', type=float, default=0.5, help='ball confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')

@@ -525,7 +525,7 @@ def main(csv_file,video_file, output_video_folder):
     cap.release()
     out.release()
     cv2.destroyAllWindows()
-    print(f"{csv_file}已处理并保存至{output_video_folder}")
+    # print(f"{csv_file}已处理并保存至{output_video_folder}")
 
 if __name__ == "__main__":
     # source_folder = r"D:\Ai_tennis\yolov7_main\test_video\Hard"
