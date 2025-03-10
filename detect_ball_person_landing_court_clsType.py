@@ -17,10 +17,15 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 from detect_with_ML import Queue
+import os
 
-serve_side, serve_position = "lower", "right"
+serve_side, serve_position = "lower", "left"
 begin_with = "serve"
 ball_locations_list=[]
+ball_invalid_areas = [
+    [0, 0, 0.1, 0.1],
+    [0.9, 0.9, 1.0, 1.0]
+]
 
 if serve_side == 'lower':
     ball_init_toward, ball_last_hit = "up", "lower"
@@ -30,7 +35,7 @@ else:
 
 def detect(save_img=False):
     words = "Pending"
-    adjacent_frame = 3
+    adjacent_frame = 4
     regression_frame = 3
     frame_list = []
     top_view_frame_list = []
@@ -38,19 +43,19 @@ def detect(save_img=False):
     heatmap_list = []
     check_stage_list=[]
 
-    classifier_path = "/media/hkuit164/Backup/yolov7/datasets/ball_combine/highlight/highlight.pth"
+    classifier_path = "weights/latest_assets/mobilenet/best_acc.pth"
     model_cfg = "/".join(classifier_path.split("/")[:-1]) + "/model_cfg.yaml"
     label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
-    highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0") #"cuda:0"
+    highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
 
 
-    landing_path = "datasets/ball_combine/landing_model/Ada.joblib"
+    landing_path = "weights/latest_assets/latest_landing.joblib"
     ML_classes = ["flying", "landing"]
     joblib_model = joblib.load(landing_path)
 
-    x_regression_path = "datasets/ball_combine/regression_model/Ridge_modelx.joblib"
+    x_regression_path = "weights/latest_assets/x_regression.joblib"
     x_regressor = joblib.load(x_regression_path)
-    y_regression_path = "datasets/ball_combine/regression_model/Ridge_modely.joblib"
+    y_regression_path = "weights/latest_assets/y_regression.joblib"
     y_regressor = joblib.load(y_regression_path)
 
     source, view_img, save_txt, imgsz, trace = opt.source, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
@@ -86,8 +91,9 @@ def detect(save_img=False):
     if half:
         human_model.half()  # to FP16
 
+    csv_path = os.path.join(opt.output_folder, "output")
+    os.makedirs(csv_path, exist_ok=True)
 
-    #click_type = "inner/detect"
     mask_points_str = opt.masks  # "374,133 949,143 1152,584 124,582"
     if mask_points_str:
         mask_pre = mask_points_str[0].split(' ')
@@ -97,6 +103,7 @@ def detect(save_img=False):
         mask_points = []
     click_type = 'detect'
     keep_court = False
+    pred_ball_location = (-1, -1)
 
     def click_points():
         def click_event(event, x, y, flags, param):
@@ -130,6 +137,7 @@ def detect(save_img=False):
     if not mask_points:
         click_points()
     cap.release()
+    cv2.destroyAllWindows()
 
     court_detector = CourtDetector(mask_points)
     init_lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points)
@@ -254,9 +262,20 @@ def detect(save_img=False):
                     # Write results
                     for *xyxy, conf, cls in reversed(det):
                         if typ == "ball":
-                            ball_exist = True
-                            ball_center = ([(xyxy[0].tolist() + xyxy[2].tolist()) / 2,
-                                            (xyxy[1].tolist() + xyxy[3].tolist()) / 2])
+                            valid = False
+                            ball_center_tmp = ([(xyxy[0].tolist() + xyxy[2].tolist()) / 2,
+                                                (xyxy[1].tolist() + xyxy[3].tolist()) / 2])
+                            ball_center_tmp = [ball_center_tmp[0]/im0.shape[1], ball_center_tmp[1]/im0.shape[0]]
+                            for area in ball_invalid_areas:
+                                if area[0] < ball_center_tmp[0] < area[2] and area[1] < ball_center_tmp[1] < area[3]:
+                                    continue
+                                else:
+                                    valid = True
+                            if valid:
+                                ball_exist = True
+                                ball_center = (int((xyxy[0].tolist() + xyxy[2].tolist()) / 2),
+                                              int((xyxy[1].tolist() + xyxy[3].tolist()) / 2))
+
                         else:
                             humans_box.append([i.tolist() for i in xyxy])
                             humans_action.append(name[int(cls)])
@@ -279,7 +298,6 @@ def detect(save_img=False):
             print(f'{s}Done. ({elapsed_time:.3f}ms)')
         human_realbox = top_view.get_player_location()
         ball_realbox = top_view.get_ball_location()
-        csv_path = opt.csv_path
         strategies.process(ball_exist, ball_center, pred_ball_location, humans_box, humans_action,classifier_status, lines,frame, words, human_realbox, ball_realbox,csv_path)
         # strategies.update_line(lines)
 
@@ -344,11 +362,11 @@ def detect(save_img=False):
             cv2.imshow("Top View", top_view_frame_list[0])
             top_view_frame_list = top_view_frame_list[1:]
 
-            cv2.imshow("Speed", speed_list[0])
-            speed_list = speed_list[1:]
-
-            cv2.imshow("Heatmap", heatmap_list[0])
-            heatmap_list = heatmap_list[1:]
+            # cv2.imshow("Speed", speed_list[0])
+            # speed_list = speed_list[1:]
+            #
+            # cv2.imshow("Heatmap", heatmap_list[0])
+            # heatmap_list = heatmap_list[1:]
 
             cv2.waitKey(1)  # 1 millisecond
 
@@ -402,9 +420,11 @@ def detect(save_img=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--ball_weights', nargs='+', type=str, default='models\models1211/ball/best.pt', help='model.pt path(s)')
-    parser.add_argument('--human_weights', nargs='+', type=str, default='models\models1211/human/best.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='video/01.mp4', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--ball_weights', nargs='+', type=str, default='weights/latest_assets/ball.pt', help='model.pt path(s)')
+    parser.add_argument('--human_weights', nargs='+', type=str, default='weights/latest_assets/yolo4cls_lr.pt', help='model.pt path(s)')
+    parser.add_argument('--source', type=str, default=r"D:\tmp_20250217\12.4\raw_video\game1.mp4", help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--output_folder', type=str, default="output", help='path to save the output')  # file/folder, 0 for webcam
+
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--ball-thres', type=float, default=0.5, help='ball confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
@@ -423,7 +443,7 @@ if __name__ == '__main__':
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--no-trace', action='store_true', help='don`t trace model')
     parser.add_argument('--masks',default='',nargs='+', help='mask')
-    parser.add_argument('--csv_path',default='test_csv/game1_set.csv',nargs='+', help='csv')
+    # parser.add_argument('--csv_path',default='test_csv/game1_set.csv',nargs='+', help='csv')
 
     opt = parser.parse_args()
     print(opt)
