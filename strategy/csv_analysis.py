@@ -556,9 +556,9 @@ if __name__ == "__main__":
     #
     # process_csvs(input_csv_folder, input_video_folder, output_video_folder)
 
-    input_csv_file = r"D:\WeChat Files\wxid_uhmu5l708q7l22\FileStorage\File\2025-02\clay\output_3.csv"
-    input_video_file = r"D:\WeChat Files\wxid_uhmu5l708q7l22\FileStorage\File\2025-02\clay\20231011_wth_yt_1.mp4"
-    output_video_folder = r"D:\WeChat Files\wxid_uhmu5l708q7l22\FileStorage\File\2025-02\clay"
+    input_csv_file = r"C:\Users\User\Desktop\hku\yolov7\output\output3\output_2.csv"
+    input_video_file = r"C:\Users\User\Desktop\hku\yolov7\output\output3\raw.mp4"
+    output_video_folder = r"C:\Users\User\Desktop\hku\yolov7\output\output3"
 
     main(input_csv_file,input_video_file, output_video_folder)
 

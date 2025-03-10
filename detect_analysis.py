@@ -436,8 +436,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--ball_weights', nargs='+', type=str, default='weights/latest_assets/ball.pt', help='model.pt path(s)')
     parser.add_argument('--human_weights', nargs='+', type=str, default='weights/latest_assets/yolo4cls_lr.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default=r"D:\Tennis\datasets\raw_videos\general\Highlight1\video_input4.mp4", help='source')  # file/folder, 0 for webcam
-    parser.add_argument('--output_folder', type=str, default="output", help='path to save the output')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default=r"D:\Tennis\datasets\raw_videos\general\MSc2023\Lin Rui\Lin Rui\20231031 + LR +тАЬ_yt_тАЭ+ 17.mp4", help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--output_folder', type=str, default="output/output3", help='path to save the output')  # file/folder, 0 for webcam
 
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--ball-thres', type=float, default=0.5, help='ball confidence threshold')
