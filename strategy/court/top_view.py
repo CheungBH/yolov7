@@ -7,15 +7,12 @@ from .plot import plot_speed_single, calculate_point_frequencies, plot_speed
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
+
 class TopViewProcessor:
     def __init__(self, players):
         self.players = players
         self.court = cv2.cvtColor(cv2.imread('strategy/court/court_reference.png'), cv2.COLOR_BGR2GRAY)
-        # court = cv2.line(self.court, lines, 255, 5)
-        # v_width, v_height = self.court.shape[::-1]
         self.court = cv2.cvtColor(self.court, cv2.COLOR_GRAY2BGR)
-        # self.out = cv2.VideoWriter('minimap.mp4', cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'), 12,
-        #                       (v_width, v_height))
         self.inv_mats = []
         # for i in range(players):
         self.position = [[] for _ in range(players)]
@@ -24,7 +21,27 @@ class TopViewProcessor:
         self.time_elapse = []
 
     def get_stats(self):
-        return self.time_elapse, self.position,self.ball_position
+        return self.time_elapse, self.position, self.ball_position
+
+    def transform_location(self, matrix, location):
+        # return cv2.perspectiveTransform(location, matrix).reshape(-1)
+        if location[-1][-1][-1] != -1:
+            return cv2.perspectiveTransform(location, matrix).reshape(-1)
+        else:
+            return np.array([-1, -1])
+
+    def visualize_bv(self, ball, humans):
+        frame = self.court.copy()
+        if ball[0] != -1:
+            cv2.circle(frame, (int(ball[0]), int(ball[1])), 45, (0, 255, 0), -1)
+        for human in humans:
+            cv2.circle(frame, (int(human[0]), int(human[1])), 45, (0, 0, 255), -1)
+        return cv2.resize(frame, (800, 600))
+
+    # def transform_player_location(self, matrix, locations):
+    #     feet = np.array([(locations[0] + (locations[2] - locations[0]) / 2), locations[3]]).reshape((1, 1, 2))
+    #     feet_court = cv2.perspectiveTransform(feet, matrix).reshape(-1)
+    #     return feet_court
 
     def process(self, court_detector, players_boxes,ball_box, use_time, profile=False, vis_graph=True):
         self.time_elapse.append(use_time)

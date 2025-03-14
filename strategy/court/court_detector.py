@@ -441,7 +441,7 @@ class CourtDetector:
   #       return accuracy
 
 
-  def track_court(self, frame, keep_court=False):
+  def track_court(self, frame, keep_court=False, **kwargs):
         if keep_court:
             return self.lines
         """
@@ -539,6 +539,7 @@ class CourtDetector:
         self.pts = np.array(self.court_reference.get_important_lines(), dtype=np.float32).reshape((-1, 1, 2))
         self.new_lines = cv2.perspectiveTransform(self.pts, self.court_warp_matrix[-1]).reshape(-1)
         return self.new_lines
+
 
 def line_intersection(line1, line2):
     """
