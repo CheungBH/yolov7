@@ -21,6 +21,7 @@ class DataManagement:
         self.classifier_raw = []
         self.balls_raw = []
         self.players_raw = []
+        self.with_kps = False
 
     def get_strategy_assets(self):
         assets = {
@@ -94,14 +95,23 @@ class DataManagement:
             self.real_players[i].append(real_human[i])
 
     def process_human(self, humans):
-        player_boxes, player_id, player_actions = humans[:, :4], humans[:, 4], humans[:, 5]
-        if len(humans[0]) > 10:
-            player_kps = humans[:, 6:]
-        for i in range(len(player_boxes)):
-            self.players_boxes[i].append(player_boxes[i].tolist())
-            self.players_actions[i].append(player_actions[i].tolist())
+        if len(humans) == 0:
+
+            for i in range(self.player_num):
+                self.players_boxes[i].append(self.players_boxes[i][-1])
+                self.players_actions[i].append(self.players_actions[i][-1])
+                if self.with_kps:
+                    self.players_kps[i].append(self.players_kps[i][-1])
+        else:
+            player_boxes, player_id, player_actions = humans[:, :4], humans[:, 4], humans[:, 5]
             if len(humans[0]) > 10:
-                self.players_kps[i].append(player_kps[i].tolist())
+                player_kps = humans[:, 6:]
+            for i in range(humans.shape[0]):
+                self.players_boxes[i].append(player_boxes[i].tolist())
+                self.players_actions[i].append(player_actions[i].tolist())
+                if len(humans[0]) > 10:
+                    self.with_kps = True
+                    self.players_kps[i].append(player_kps[i].tolist())
 
     def get_classifier_status(self):
         return self.classifier[-1]
