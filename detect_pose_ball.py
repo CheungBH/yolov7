@@ -313,8 +313,7 @@ def detect():
         top_view_img = top_view.visualize_bv(real_ball, real_players)
         court_detector.visualize(im0, lines)
 
-        tv_list.append(top_view_img)
-        frame_list.append(im0)
+
         BoxProcessor.enqueue(selected_ball)
         BoxRegProcessor.enqueue(selected_ball)
 
@@ -331,6 +330,9 @@ def detect():
         data_manger.second_update(landing=words, real_ball=real_ball, real_human=real_players)
         strategy_assets = data_manger.get_strategy_assets()
 
+        # Visualize
+        tv_list.append(top_view_img)
+        frame_list.append(im0)
         if idx >= adjacent_frame:
             display_img = frame_list[0]
             cv2.imshow(str(p), display_img)
