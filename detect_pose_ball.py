@@ -26,25 +26,34 @@ from strategy.court.top_view import TopViewProcessor
 
 
 class Queue:
-    def __init__(self, max_length, h, w):
+    def __init__(self, max_length, h, w, no_exist_with_prev=False):
         self.max_length = max_length
         self.queue = deque()
         self.h, self.w = h, w
+        self.no_exist_with_prev = no_exist_with_prev
 
     def process_item(self, item):
         if len(item) == 0:
             self.queue.append(self.queue[-1])
 
     def enqueue(self, item):
-        if len(item) == 0:
-            if self.queue:
-                self.queue.append(self.queue[-1])
+        if self.no_exist_with_prev:
+            if -1 in item:
+                if self.queue:
+                    self.queue.append(self.queue[-1])
+                else:
+                    self.queue.append((-1, -1))
             else:
-                self.queue.append((-1, -1))
-        # elif len(item) == 1:
-        #     self.queue.append((item[0][0] / self.w, item[0][1] / self.h))
+                self.queue.append((item[0] / self.w, item[1] / self.h))
         else:
             self.queue.append((item[0] / self.w, item[1] / self.h))
+        # if len(item) == 0:
+        #     if self.queue:
+        #         self.queue.append(self.queue[-1])
+        #     else:
+        #         self.queue.append((-1, -1))
+        # else:
+        #     self.queue.append((item[0] / self.w, item[1] / self.h))
 
         if len(self.queue) > self.max_length:
             self.queue.popleft()
@@ -151,7 +160,7 @@ def detect():
     BoxProcessor = Queue(max_length=adjacent_frame * 2 + 1, h=dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
                          w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     BoxRegProcessor = Queue(max_length=regression_frame, h=dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
-                            w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                            w=dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH), no_exist_with_prev=True)
 
     cap = cv2.VideoCapture(source)
     ret, img = cap.read()
