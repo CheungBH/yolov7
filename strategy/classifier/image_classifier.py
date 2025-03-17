@@ -39,10 +39,7 @@ class ImageClassifier:
         scores = self.MB.inference_tensor(img_tns)
         self.scores = scores[0]
         _, self.pred_idx = torch.max(self.scores, 0)
-        self.pred_cls = self.classes[self.pred_idx]
-        self.color = self.colors[self.pred_idx]
-        self.vis_str = "{}: {}".format(self.pred_cls, self.scores[self.pred_idx].item())
-        return self.pred_cls
+        return self.pred_idx
 
     def preprocess(self, img, boxes, kps, kps_score):
         if "crop" in self.img_type:
@@ -65,8 +62,14 @@ class ImageClassifier:
             raise ValueError("Unknown image type: {}".format(self.img_type))
         return imgs_tensor
 
-    def visualize(self, frame):
+    def visualize(self, frame, index):
         w = frame.shape[1]
+        self.pred_cls = self.classes[index]
+        self.color = self.colors[index]
+        if hasattr(self, "scores"):
+            self.vis_str = "{}: {}".format(self.pred_cls, self.scores[index].item())
+        else:
+            self.vis_str = "{}".format(self.pred_cls)
         cv2.putText(frame, self.vis_str, (w-1000, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, self.color, 2)
 
 

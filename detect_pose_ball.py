@@ -78,20 +78,21 @@ def detect():
     adjacent_frame = 4
     regression_frame = 3
     frame_list, tv_list = [], []
-    mask_points = [(436, 226), (838, 230), (914, 415), (356, 414)]
+    mask_points = [(462, 174), (806, 174), (889, 345), (386, 343)]
 
-    classifier_path = "/media/hkuit164/Backup/yolov7/datasets/ball_combine/highlight/highlight.pth"
+
+    classifier_path = "datasets/ball_combine/highlight/highlight.pth"
     model_cfg = "/".join(classifier_path.split("/")[:-1]) + "/model_cfg.yaml"
     label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
     highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
 
-    landing_path = '/media/hkuit164/Backup/yolov7/datasets/ball_combine/landing_model/GBDT_tff.joblib'
+    landing_path = 'datasets/ball_combine/landing_model/GBDT_tff.joblib'
     ML_classes = ["flying", "landing"]
     joblib_model = joblib.load(landing_path)
 
-    x_regression_path = '/media/hkuit164/Backup/yolov7/datasets/ball_combine/regression_model/Ridge_modelx.joblib'
+    x_regression_path = 'datasets/ball_combine/regression_model/Ridge_modelx.joblib'
     x_regressor = joblib.load(x_regression_path)
-    y_regression_path = '/media/hkuit164/Backup/yolov7/datasets/ball_combine/regression_model/Ridge_modely.joblib'
+    y_regression_path = 'datasets/ball_combine/regression_model/Ridge_modely.joblib'
     y_regressor = joblib.load(y_regression_path)
 
     pose_weights = opt.pose_weights
@@ -167,14 +168,14 @@ def detect():
     directory_path = os.path.dirname(source)
 
     if use_saved_box:
-        box_asset_path = os.path.join(directory_path, 'assets.json')
+        box_asset_path = os.path.join(directory_path, os.path.basename(source).split(".")[0] + ".json")
         assert os.path.exists(box_asset_path), "The box asset file does not exist."
         with open(box_asset_path, 'r') as f:
             box_assets = json.load(f)
         mask_points = box_assets['mask']
         click_type = box_assets['mask_type']
     else:
-        box_asset_path = os.path.join(directory_path, 'assets.json')
+        box_asset_path = os.path.join(directory_path, os.path.basename(source).split(".")[0] + ".json")
         box_assets = {}
         # if os.path.exists(box_asset_path):
         #     input("The box asset file already exists, do you want to overwrite it? Press Enter to continue, or Ctrl+C to exit.")
@@ -191,13 +192,15 @@ def detect():
     central_y, central_x = int((init_lines[9] + init_lines[11])//2), int((init_lines[-12] + init_lines[-10])//2)
 
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
+        if idx == opt.stop_at:
+            break
         if use_saved_box:
-            classifier_result = box_assets[idx]["classifier"]
+            classifier_result = int(box_assets[str(idx)]["classifier"])
         else:
             box_assets[idx] = {}
             classifier_result = highlight_classifier(im0s) # 0: playing, 1: highlight
-            box_assets[idx]["classifier"] = classifier_result
-        highlight_classifier.visualize(im0s)
+            box_assets[idx]["classifier"] = str(classifier_result.tolist())
+        highlight_classifier.visualize(im0s, classifier_result)
 
         ball_center = []
         img = torch.from_numpy(img).to(device)
@@ -208,21 +211,25 @@ def detect():
 
         # Inference
         if use_saved_box:
-            ball_pred = torch.tensor(box_assets[idx]["ball"])
-            pose_pred = torch.tensor(box_assets[idx]["person"])
+            t1 = time_synchronized()
+            ball_pred = [torch.tensor(box_assets[str(idx)]["ball"])]
+            pose_pred = [torch.tensor(box_assets[str(idx)]["person"])]
+            t2 = time_synchronized()
+            t3 = time_synchronized()
+
         else:
             t1 = time_synchronized()
             with torch.no_grad():   # Calculating gradients would cause a GPU memory leak
                 ball_pred = ball_model(img, augment=opt.augment)[0]
                 pose_pred = pose_model(img, augment=opt.augment)[0]
             t2 = time_synchronized()
-            box_assets[idx]["ball"] = ball_pred.cpu().tolist()
-            box_assets[idx]["person"] = pose_pred.cpu().tolist()
 
-        # Apply NMS
-        ball_pred = non_max_suppression(ball_pred, opt.ball_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
-        pose_pred = pose_non_max_suppression(pose_pred, opt.pose_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms, kpt_label=kpt_label)
-        t3 = time_synchronized()
+            # Apply NMS
+            ball_pred = non_max_suppression(ball_pred, opt.ball_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
+            pose_pred = pose_non_max_suppression(pose_pred, opt.pose_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms, kpt_label=kpt_label)
+            box_assets[idx]["ball"] = ball_pred[0].tolist() #.cpu().tolist()
+            box_assets[idx]["person"] = pose_pred[0].tolist()#.cpu().tolist()
+            t3 = time_synchronized()
 
         preds = [ball_pred, pose_pred] # detection result
         types = ["ball", "pose"]
@@ -376,6 +383,8 @@ if __name__ == '__main__':
     parser.add_argument('--no-trace', action='store_true', help='don`t trace model')
     parser.add_argument('--kpt-label', action='store_true', help='use keypoint labels')
     parser.add_argument("--use_saved_box",action="store_true",help="Load box json for fast inference")
+    parser.add_argument('--stop_at', type=int, default=-1, help='')
+
     opt = parser.parse_args()
     print(opt)
     #check_requirements(exclude=('pycocotools', 'thop'))
