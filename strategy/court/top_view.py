@@ -23,12 +23,6 @@ class TopViewProcessor:
     def get_stats(self):
         return self.time_elapse, self.position, self.ball_position
 
-    def transform_location(self, matrix, location):
-        # return cv2.perspectiveTransform(location, matrix).reshape(-1)
-        if location[-1][-1][-1] != -1:
-            return cv2.perspectiveTransform(location, matrix).reshape(-1)
-        else:
-            return np.array([-1, -1])
 
     def visualize_bv(self, ball, humans):
         frame = self.court.copy()

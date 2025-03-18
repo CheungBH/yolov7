@@ -78,7 +78,7 @@ def detect():
     adjacent_frame = 4
     regression_frame = 3
     frame_list, tv_list = [], []
-    mask_points = [(462, 174), (806, 174), (889, 345), (386, 343)]
+    mask_points =[(627, 414), (1306, 417), (1431, 683), (498, 682)]
 
 
     classifier_path = "datasets/ball_combine/highlight/highlight.pth"
@@ -98,7 +98,8 @@ def detect():
     pose_weights = opt.pose_weights
     kpt_label = opt.kpt_label
     ball_weights = opt.ball_weights
-    source, view_img, save_txt, imgsz, trace, use_saved_box = opt.source, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace, opt.use_saved_box
+    source, view_img, save_txt, imgsz, trace, use_saved_box,player_num = (
+        opt.source, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace, opt.use_saved_box, opt.player_num)
     tracker = BoxTracker()
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
@@ -152,8 +153,8 @@ def detect():
     # frame_id = 0
     colors = [ball_color, pose_colors]
 
-    data_manger = DataManagement(player_num=2)
-    top_view = TopViewProcessor(players=2)
+    data_manger = DataManagement(player_num=player_num)
+    top_view = TopViewProcessor(players=player_num)
             # DataManagement.first_filter(box_assets=box_assets['{}'.format(frame_id)])
 
     t0 = time.time()
@@ -176,10 +177,12 @@ def detect():
         click_type = box_assets['mask_type']
     else:
         box_asset_path = os.path.join(directory_path, os.path.basename(source).split(".")[0] + ".json")
+        box_assets_filter_path = os.path.join(directory_path, os.path.basename(source).split(".")[0] + "_filter.json")
         box_assets = {}
         # if os.path.exists(box_asset_path):
         #     input("The box asset file already exists, do you want to overwrite it? Press Enter to continue, or Ctrl+C to exit.")
         box_f = open(box_asset_path, 'w')
+        box_f_filter = open(box_assets_filter_path,'w')
         box_assets['mask'] = mask_points
         box_assets['mask_type'] = click_type
 
@@ -284,7 +287,7 @@ def detect():
                 # Print time (inference + NMS)
                 print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
 
-        lines = court_detector.track_court(frame=im0, mask_points=mask_points)
+        lines = court_detector.track_court(frame=im0, mask_points=mask_points)  # detect lines and track lines
         current_matrix = court_detector.game_warp_matrix[-1]
 
         if BoxRegProcessor.check_enough():
@@ -309,20 +312,18 @@ def detect():
         data_assets["court"] = lines.tolist()
         data_assets["ball_prediction"] = pred_ball_location
 
-        data_manger.first_filter(data_assets)
+        # data_manger.first_filter(data_assets)
+        data_manger.first_filter(data_assets,current_matrix,idx)
+        box_assets_filter = data_manger.real_players
 
-        selected_ball = data_manger.get_ball()
-        selected_humans = data_manger.get_humans_feet()
-        real_ball = top_view.transform_location(matrix=current_matrix, location=np.array([[selected_ball]])).tolist()
-        real_players = [top_view.transform_location(matrix=current_matrix, location=np.array([[player]])).tolist()
-                        for player in selected_humans]
-        # real_player = top_view.transform_location(matrix=current_matrix, location=np.array([selected_humans]))
+        real_ball = data_manger.real_balls[-1]
+        real_players = data_manger.real_players[-1]
         top_view_img = top_view.visualize_bv(real_ball, real_players)
         court_detector.visualize(im0, lines)
 
 
-        BoxProcessor.enqueue(selected_ball)
-        BoxRegProcessor.enqueue(selected_ball)
+        BoxProcessor.enqueue(data_manger.get_ball())
+        BoxRegProcessor.enqueue(data_manger.get_ball())
 
         if not BoxProcessor.check_enough():
             words = "Pending"
@@ -334,7 +335,7 @@ def detect():
             color = (0, 0, 255) if words == "landing" else (0, 255, 0)
             cv2.putText(im0, words, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
 
-        data_manger.second_update(landing=words, real_ball=real_ball, real_human=real_players)
+        data_manger.second_update(landing=words) # pending -1, flying 0,landing 1
         strategy_assets = data_manger.get_strategy_assets()
 
         # Visualize
@@ -354,6 +355,7 @@ def detect():
 
     if not use_saved_box:
         json.dump(box_assets, box_f,indent =4)
+        json.dump(strategy_assets,box_f_filter, indent=4)
 
 
 if __name__ == '__main__':
@@ -384,6 +386,7 @@ if __name__ == '__main__':
     parser.add_argument('--kpt-label', action='store_true', help='use keypoint labels')
     parser.add_argument("--use_saved_box",action="store_true",help="Load box json for fast inference")
     parser.add_argument('--stop_at', type=int, default=-1, help='')
+    parser.add_argument('--player_num', type=int, default=2, help='')
 
     opt = parser.parse_args()
     print(opt)

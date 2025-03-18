@@ -1,62 +1,92 @@
 from collections import defaultdict
 from .utils import find_closest_point
 import numpy as np
+import cv2
 
 
 class DataManagement:
     def __init__(self, player_num=2):
         self.player_num = player_num
+        self.middle_line = 255
         self.balls = []
         self.players_boxes = defaultdict(list)
         self.players_actions = defaultdict(list)
         self.players_kps = defaultdict(list)
+        self.players_kps_preds = defaultdict(list)
         self.ball_predictions = []
         self.classifications = defaultdict(list)
+        self.assets = {}
         self.real_balls = []
-        self.real_players = defaultdict(list)
+        # self.real_players = defaultdict(list)
         self.curve_status = []
-
+        self.real_players = []
+        self.frame_id = 0
         self.court = []
         self.classifier = []
         self.classifier_raw = []
         self.balls_raw = []
         self.players_raw = []
         self.with_kps = False
+        self.rally_cnt = 0
+        self.ball_position = []
+        self.ball_enhance_position = []
 
     def get_strategy_assets(self):
-        assets = {
+        self.assets[self.frame_id] = {
             "classifier": self.classifier[-1],
+            # "human": [self.players_boxes[i][-1] for i in range(self.player_num)],
+            "upper_human": self.players_boxes["upper"][-1],
+            "lower_human": self.players_boxes["lower"][-1],
+            "upper_actions": self.players_actions["upper"][-1],
+            "lower_actions": self.players_actions["lower"][-1],
+            "real_upper_human": sorted(self.real_players[-1], key=lambda x: x[1])[0],
+            "real_lower_human": sorted(self.real_players[-1], key=lambda x: x[1])[1],
+            # "action": [self.players_actions[i][-1] for i in range(self.player_num)],
+            # "kp": [self.players_kps[i][-1] for i in range(self.player_num)],
             "ball": self.balls[-1],
-            "human": [self.players_boxes[i][-1] for i in range(self.player_num)],
-            "action": [self.players_actions[i][-1] for i in range(self.player_num)],
-            "kp": [self.players_kps[i][-1] for i in range(self.player_num)],
             "real_ball": self.real_balls[-1],
-            "real_human": [self.real_players[i][-1] for i in range(self.player_num)],
+            # "real_human": [self.real_players[i][-1] for i in range(self.player_num)],
             "court": self.court[-1],
             "ball_prediction": self.ball_predictions[-1],
             "curve_status": self.curve_status[-1],
+            "middle_line": self.middle_line,
+            "rally_cnt": self.rally_cnt
         }
-        return assets
+        return self.assets
 
-    def first_filter(self, box_assets):
+    def first_filter(self, box_assets,current_matrix,idx):
         self.classifier_raw.append(box_assets['classifier'])
         self.balls_raw.append(box_assets['ball'])
         self.players_raw.append(box_assets['person'])
         self.court.append(box_assets['court'])
         self.ball_predictions.append(box_assets['ball_prediction'])
+        self.middle_line = self.court[-1][9]
+        self.frame_id = idx
         self.process_classifier(self.classifier_raw)
-
         self.process_ball(box_assets['ball'], box_assets['ball_prediction'])
         self.process_human(box_assets['person'])
+        selected_ball = self.get_ball()
+        selected_humans = self.get_humans_feet()
+        self.real_balls.append(self.transform_location(matrix=current_matrix, location=np.array([[selected_ball]])).tolist())
+        self.real_players.append([self.transform_location(matrix=current_matrix, location=np.array([[player]])).tolist()
+                        for player in selected_humans])
+
+    def transform_location(self, matrix, location):
+        # return cv2.perspectiveTransform(location, matrix).reshape(-1)
+        if location[-1][-1][-1] != -1:
+            return cv2.perspectiveTransform(location, matrix).reshape(-1)
+        else:
+            return np.array([-1, -1])
 
     def get_ball(self):
         return self.balls[-1]
 
     def get_humans_feet(self):
         feet = []
-        for i in range(self.player_num):
-            player_box = self.players_boxes[i][-1]
-            feet.append([(player_box[0] + (player_box[2] - player_box[0]) / 2), player_box[3]])
+        upper_player_box = self.players_boxes["upper"][-1]
+        lower_player_box = self.players_boxes["lower"][-1]
+        feet.append([(upper_player_box[0] + (upper_player_box[2] - upper_player_box[0]) / 2), upper_player_box[3]])
+        feet.append([(lower_player_box[0] + (lower_player_box[2] - lower_player_box[0]) / 2), lower_player_box[3]])
         return feet
 
     def process_classifier(self, classifier):
@@ -88,30 +118,68 @@ class DataManagement:
             self.balls.append(ball_location[0])
         # self.balls.append(ball)
 
-    def second_update(self, landing, real_ball, real_human):
+    def second_update(self, landing, kps_pred=[]):
         self.curve_status.append(landing)
-        self.real_balls.append(real_ball)
-        for i in range(self.player_num):
-            self.real_players[i].append(real_human[i])
+        self.get_rally_cnt()
+        # for i in range(self.player_num):
+        #     self.real_players[i].append(self.real_players_list[-1][i])
+
+    def select_by_priority(self, actions, order):
+        for index in order:
+            if index < len(actions):
+                return index
+        return None
 
     def process_human(self, humans):
-        if len(humans) == 0:
-
-            for i in range(self.player_num):
-                self.players_boxes[i].append(self.players_boxes[i][-1])
-                self.players_actions[i].append(self.players_actions[i][-1])
-                if self.with_kps:
-                    self.players_kps[i].append(self.players_kps[i][-1])
-        else:
-            player_boxes, player_id, player_actions = humans[:, :4], humans[:, 4], humans[:, 5]
-            if len(humans[0]) > 10:
-                player_kps = humans[:, 6:]
-            for i in range(humans.shape[0]):
-                self.players_boxes[i].append(player_boxes[i].tolist())
-                self.players_actions[i].append(player_actions[i].tolist())
+        if self.player_num == 2:  # self.middle_line
+            if len(humans) == 0:
+                for i in range(self.player_num):
+                    self.players_boxes[i].append(self.players_boxes[i][-1])
+                    self.players_actions[i].append(self.players_actions[i][-1])
+                    if self.with_kps:
+                        self.players_kps[i].append(self.players_kps[i][-1])
+            else:
+                priority_order = [2, 0, 1, 3]
+                player_boxes, player_id, player_actions = humans[:, :4], humans[:, 4], humans[:, 5]
                 if len(humans[0]) > 10:
-                    self.with_kps = True
-                    self.players_kps[i].append(player_kps[i].tolist())
+                    player_kps = humans[:, 6:]
+
+                upper_players = {"id":[],"boxes": [], "actions": []}
+                lower_players = {"id":[],"boxes": [], "actions": []}
+
+                for i in range(humans.shape[0]):
+                    box = player_boxes[i].tolist()
+                    action = player_actions[i]
+                    if box[1] + box[3] < 2 * self.middle_line:
+                        upper_players["id"].append(i)
+                        upper_players["boxes"].append(box)
+                        upper_players["actions"].append(action)
+                    else:
+                        lower_players["id"].append(i)
+                        lower_players["boxes"].append(box)
+                        lower_players["actions"].append(action)
+
+                if len(upper_players["actions"]) >= 1:
+                    priority_index = self.select_by_priority(upper_players["actions"], priority_order)
+                    self.players_boxes["upper"].append(upper_players["boxes"][priority_index])
+                    self.players_actions["upper"].append(upper_players["actions"][priority_index])
+
+                if len(lower_players["actions"]) >= 1:
+                    priority_index = self.select_by_priority(lower_players["actions"], priority_order)
+                    self.players_boxes["lower"].append(lower_players["boxes"][priority_index])
+                    self.players_actions["lower"].append(lower_players["actions"][priority_index])
+                # Handle missing values
+                if not upper_players["actions"]:
+                    self.players_boxes["upper"].append(self.players_boxes["upper"][-1])
+                    self.players_actions["upper"].append(self.players_actions["upper"][-1])
+                if not lower_players["actions"]:
+                    self.players_boxes["lower"].append(self.players_boxes["lower"][-1])
+                    self.players_actions["lower"].append(self.players_actions["lower"][-1])
+
+                    # if len(humans[0]) > 10:
+                    #     self.with_kps = True
+                    #     self.players_kps[i].append(player_kps[i].tolist())
+
 
     def get_classifier_status(self):
         return self.classifier[-1]
@@ -124,3 +192,23 @@ class DataManagement:
 
     def to_csv_filtered(self):
         pass
+
+    def get_rally_cnt(self):
+        frame_duration =5
+        current_y=self.balls[-1][1]
+        self.ball_position.append("lower" if current_y > self.middle_line else "upper" if current_y != -1 else None)
+        if len(self.ball_position) > frame_duration:
+            upper_count = self.ball_position[-frame_duration:].count("upper")
+            lower_count = self.ball_position[-frame_duration:].count("lower")
+            if upper_count > 4 and self.ball_position[-1]=="upper":
+                self.ball_enhance_position.append("upper")
+            elif lower_count > 4 and self.ball_position[-1]=="lower":
+                self.ball_enhance_position.append("lower")
+            if len(self.ball_enhance_position) == 2:
+                if self.ball_enhance_position[-1] == self.ball_enhance_position[-2]:
+                    self.ball_enhance_position.pop(0)
+                else:
+                    self.rally_cnt += 1
+                    self.ball_enhance_position.pop(0)
+                    print(self.rally_cnt)
+

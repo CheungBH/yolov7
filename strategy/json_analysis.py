@@ -1,8 +1,9 @@
 import os
-import json
+
 import cv2
 import csv
 import ast
+import json
 import numpy as np
 
 def read_csv_file(csv_file):
@@ -20,54 +21,8 @@ def read_csv_file(csv_file):
             data.append(row)
     return data
 
-def read_json_file(json_file):
-    data = []
-    with open(json_file, 'r') as f:
-        datasets = json.load(f)
 
-    action_mapping = {
-        3: "waiting",
-        2: "overhead",
-        0: "left",
-        1: "right"
-    }
 
-    # Iterate through the frames and extract relevant data
-    for frame_id, frame_data in datasets.items():
-        # Replace upper_actions and lower_actions based on the mapping
-        upper_actions = action_mapping.get(frame_data.get('upper_actions'), frame_data.get('upper_actions'))
-        lower_actions = action_mapping.get(frame_data.get('lower_actions'), frame_data.get('lower_actions'))
-
-        row = [
-            upper_actions,  # Replace upper_actions
-            frame_data.get('upper_human'),
-            lower_actions,  # Replace lower_actions
-            frame_data.get('lower_human'),
-            frame_data.get('curve_status'),
-            frame_data.get('ball'),
-            frame_data.get('rally_cnt'),
-            frame_id,
-            [frame_data.get('real_upper_human'),frame_data.get('real_lower_human')] , # Use real_lower_human if needed
-            [frame_data.get('real_ball')],
-            frame_data.get('middle_line'),
-            0,  # Static value
-            frame_data.get('ball_prediction')
-        ]
-        data.append(row)
-
-    return data
-# def process_rally_changes(data):
-#     rally_change_list = []
-#     rally_cnt_prev = data[0][6]
-#     for row in data:
-#         rally_cnt = row[6]
-#         frame = int(row[7])
-#         if rally_cnt != rally_cnt_prev:
-#             rally_change_list.append(frame)
-#         rally_cnt_prev = rally_cnt
-#     rally_change_list = [rally_change_list[i] for i in range(len(rally_change_list)) if i == 0 or rally_change_list[i] - rally_change_list[i-1] > 3]
-#     rally_change_intervals = [[rally_change_list[i], rally_change_list[i+1]] for i in range(len(rally_change_list)-1)] #第一球和最后一球不计入
-#     return rally_change_list, rally_change_intervals
 
 def process_rally_changes(data):
     first_frame = int(data[0][7])
@@ -206,7 +161,7 @@ def min_width_frame(boxs):
     return min_width_frame
 
 def upper_lower_state(upper_hit,lower_hit,upper_hit_intervals,lower_hit_intervals, data):
-    last_frame = int(data[-1][7])+1
+    last_frame = int(data[-1][7])
     upper_state_list = [3] * last_frame
     lower_state_list = [3] * last_frame
     upper_ret_rea_app_list = []
@@ -289,7 +244,7 @@ def is_same_direction(a, b, c):
     return dot_product > 0
 
 def change_direction(upper_ret_rea_app_list, lower_ret_rea_app_list, data):
-    last_frame = int(data[-1][7]) + 1
+    last_frame = int(data[-1][7])
     upper_locations = []
     lower_locations = []
     upper_direction_list = [2] * last_frame
@@ -357,7 +312,7 @@ def is_cross(ball_locations, width):
     return x_range > width*0.28
 
 def cross_straight(hit_times, data, width):
-    last_frame = int(data[-1][7])+1
+    last_frame = int(data[-1][7])
     cross_straight_list = [[2,(-1,-1),(-1,-1)]] * last_frame
     for i in range(len(hit_times)):
         if i >= 1:
@@ -527,8 +482,7 @@ def initialize_video_writer(video_file, output_folder):
 
 def main(csv_file,video_file, output_video_folder):
     previous_positions = []
-    # data = read_csv_file(csv_file)
-    data = read_json_file(csv_file)
+    data = read_csv_file(csv_file)
     cap, out, fps, width, height = initialize_video_writer(video_file, output_video_folder)
     total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -546,7 +500,7 @@ def main(csv_file,video_file, output_video_folder):
         ret, frame = cap.read()
         if not ret:
             break
-        for r_id, row in enumerate(data):
+        for row in data:
             if int(row[7]) == frame_count:
                 draw_ball_boxes_arrows(frame, row, precise_landings, frame_count, previous_positions,ball_list, cross_straight_list)
             draw_state_info(frame, upper_hit, lower_hit, frame_count, upper_state_list, lower_state_list,upper_box_list,lower_box_list, upper_direction_list, lower_direction_list)
@@ -593,10 +547,9 @@ if __name__ == "__main__":
     #
     # process_csvs(input_csv_folder, input_video_folder, output_video_folder)
 
-    #input_csv_file = r"C:\Users\User\Desktop\hku\yolov7\output\output3\output_2.csv"
-    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\grass3_filter.json"
-    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\grass3.mp4"
-    output_video_folder = r"C:\sers\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\test"
+    input_csv_file = r"C:\Users\User\Desktop\hku\yolov7\output\output3\output_2.csv"
+    input_video_file = r"C:\Users\User\Desktop\hku\yolov7\output\output3\raw.mp4"
+    output_video_folder = r"C:\Users\User\Desktop\hku\yolov7\output\output3"
 
-    main(input_json_file,input_video_file, output_video_folder)
+    main(input_csv_file,input_video_file, output_video_folder)
 
