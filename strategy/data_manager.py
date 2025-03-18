@@ -150,7 +150,8 @@ class DataManagement:
                 for i in range(humans.shape[0]):
                     box = player_boxes[i].tolist()
                     action = player_actions[i]
-                    if box[1] + box[3] < 2 * self.middle_line:
+                    # if box[1] + box[3] < 2 * (self.middle_line-
+                    if box[3] < self.middle_line:
                         upper_players["id"].append(i)
                         upper_players["boxes"].append(box)
                         upper_players["actions"].append(action)
