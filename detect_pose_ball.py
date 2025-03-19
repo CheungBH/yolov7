@@ -1,6 +1,7 @@
 import argparse
 import time
 import os
+from scripts.json2csv import json_to_csv
 import json
 from strategy.data_manager import DataManagement
 from strategy.tracker.sort_tracker import BoxTracker
@@ -205,7 +206,7 @@ def detect():
         click_type = box_assets['mask_type']
     else:
         box_asset_path = os.path.join(directory_path, os.path.basename(source).split(".")[0] + ".json")
-        box_assets_filter_path = os.path.join(directory_path, os.path.basename(source).split(".")[0] + "_filter.json")
+        box_assets_filter_path = os.path.join(output_folder, os.path.basename(source).split(".")[0] + "_filter.json")
         box_assets = {}
         # if os.path.exists(box_asset_path):
         #     input("The box asset file already exists, do you want to overwrite it? Press Enter to continue, or Ctrl+C to exit.")
@@ -398,13 +399,15 @@ def detect():
     if not use_saved_box:
         json.dump(box_assets, box_f,indent =4)
         json.dump(strategy_assets, box_f_filter, indent=4)
+        csv_file_path = os.path.join(output_folder, "result.csv")
+        json_to_csv(box_assets, csv_file_path)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pose_weights', nargs='+', type=str, default="weights/latest_assets/yolopose_4lr.pt", help='model.pt path(s)')
     parser.add_argument('--ball_weights', nargs='+', type=str, default="weights/latest_assets/ball.pt", help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default=r"D:\Tennis\datasets\raw_videos\general\MSc2023\Kang Hong\20231011_kh_yt_8.mp4", help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default=r"/Volumes/ASSETS/Tennis/datasets/raw_videos/general/MSc2023/Kang Hong/20231011_kh_yt_12.mp4", help='source')  # file/folder, 0 for webcam
     parser.add_argument("--output_folder", default="output")
     # parser.add_argument("--output_csv_file", default="2s.csv")
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
