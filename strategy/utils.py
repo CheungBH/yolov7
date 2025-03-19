@@ -1,5 +1,22 @@
 import csv
 import ast
+
+def normalize_keypoints(keypoints, bbox):
+    x1, y1, x2, y2 = bbox
+    width = x2 - x1
+    height = y2 - y1
+    normalized_keypoints = []
+
+    for i in range(len(keypoints)//3):
+        x_kp = keypoints[i*3]
+        y_kp = keypoints[i*3+1]
+        x_norm = (x_kp - x1) / width
+        y_norm = (y_kp - y1) / height
+        normalized_keypoints.append(x_norm)
+        normalized_keypoints.append(y_norm)
+    return normalized_keypoints
+
+
 def read_csv_file(csv_file):
     data = []
     with open(csv_file, 'r') as file:

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from .utils import find_closest_point
+from .utils import find_closest_point, normalize_keypoints
 import numpy as np
 import cv2
 
@@ -31,6 +31,24 @@ class DataManagement:
         self.ball_position = []
         self.ball_enhance_position = []
 
+
+    def get_kps_prediction_input(self, step, frame_cnt):
+        kps_duration = (frame_cnt-1)*step+1
+        normalized_kps = []
+        for player in ["upper", "lower"]:
+
+            if len(self.players_boxes[player]) < kps_duration or len(self.players_kps[player]) < kps_duration:
+                return []
+            normalized_kp = []
+            kps = self.players_kps[player][-kps_duration:]
+            boxes = self.players_boxes[player][-kps_duration:]
+            for i in range(frame_cnt):
+                f_id = i*step
+                normalized_kp += normalize_keypoints(kps[f_id], boxes[f_id])
+            normalized_kps.append(normalized_kp)
+        return normalized_kps
+
+
     def get_strategy_assets(self):
         self.assets[self.frame_id] = {
             "classifier": self.classifier[-1],
@@ -50,7 +68,11 @@ class DataManagement:
             "ball_prediction": self.ball_predictions[-1],
             "curve_status": self.curve_status[-1],
             "middle_line": self.middle_line,
-            "rally_cnt": self.rally_cnt
+            "rally_cnt": self.rally_cnt,
+            "lower_human_kps": self.players_kps["lower"][-1],
+            "upper_human_kps": self.players_kps["upper"][-1],
+            "lower_human_kps_pred": self.players_kps_preds["lower"][-1],
+            "upper_human_kps_pred": self.players_kps_preds["upper"][-1],
         }
         return self.assets
 
@@ -121,6 +143,9 @@ class DataManagement:
     def second_update(self, landing, kps_pred=[]):
         self.curve_status.append(landing)
         self.get_rally_cnt()
+        if kps_pred:
+            self.players_kps_preds["upper"].append(kps_pred[0])
+            self.players_kps_preds["lower"].append(kps_pred[1])
         # for i in range(self.player_num):
         #     self.real_players[i].append(self.real_players_list[-1][i])
 
@@ -134,7 +159,12 @@ class DataManagement:
         if self.player_num == 2:  # self.middle_line
             if len(humans) == 0:
                 self.players_boxes['upper'].append(self.players_boxes['upper'][-1])
+                self.players_boxes['lower'].append(self.players_boxes['lower'][-1])
+                self.players_actions['upper'].append(self.players_actions['upper'][-1])
                 self.players_actions['lower'].append(self.players_actions['lower'][-1])
+                if len(self.players_kps) > 0:
+                    self.players_kps['upper'].append(self.players_kps['upper'][-1])
+                    self.players_kps['lower'].append(self.players_kps['lower'][-1])
 
             else:
                 priority_order = [2, 0, 1, 3]
@@ -142,46 +172,65 @@ class DataManagement:
                 if len(humans[0]) > 10:
                     player_kps = humans[:, 6:]
 
-                upper_players = {"id":[],"boxes": [], "actions": []}
-                lower_players = {"id":[],"boxes": [], "actions": []}
+                upper_players = {"id":[],"boxes": [], "actions": [], "kps": []}
+                lower_players = {"id":[],"boxes": [], "actions": [], "kps": []}
 
                 for i in range(humans.shape[0]):
                     box = player_boxes[i].tolist()
                     action = player_actions[i]
+                    if len(humans[0]) > 10:
+                        player_kp = player_kps[i].tolist()
                     # if box[1] + box[3] < 2 * (self.middle_line-
                     if box[3] < self.middle_line:
                         upper_players["id"].append(i)
                         upper_players["boxes"].append(box)
                         upper_players["actions"].append(action)
+                        if len(humans[0]) > 10:
+                            upper_players["kps"].append(player_kp)
                     else:
                         lower_players["id"].append(i)
                         lower_players["boxes"].append(box)
                         lower_players["actions"].append(action)
+                        if len(humans[0]) > 10:
+                            lower_players["kps"].append(player_kp)
 
                 if len(upper_players["actions"]) >= 1:
                     priority_index = self.select_by_priority(upper_players["actions"], priority_order)
                     self.players_boxes["upper"].append(upper_players["boxes"][priority_index])
                     self.players_actions["upper"].append(upper_players["actions"][priority_index])
+                    if len(humans[0]) > 10:
+                        self.players_kps["upper"].append(upper_players["kps"][priority_index])
 
                 if len(lower_players["actions"]) >= 1:
                     priority_index = self.select_by_priority(lower_players["actions"], priority_order)
                     self.players_boxes["lower"].append(lower_players["boxes"][priority_index])
                     self.players_actions["lower"].append(lower_players["actions"][priority_index])
+                    if len(humans[0]) > 10:
+                        self.players_kps["lower"].append(lower_players["kps"][priority_index])
                 # Handle missing values
                 if not upper_players["actions"]:
                     self.players_boxes["upper"].append(self.players_boxes["upper"][-1])
                     self.players_actions["upper"].append(self.players_actions["upper"][-1])
+                    if len(humans[0]) > 10:
+                        self.players_kps["upper"].append(self.players_kps["upper"][-1])
                 if not lower_players["actions"]:
                     self.players_boxes["lower"].append(self.players_boxes["lower"][-1])
                     self.players_actions["lower"].append(self.players_actions["lower"][-1])
+                    if len(humans[0]) > 10:
+                        self.players_kps["lower"].append(self.players_kps["lower"][-1])
 
-                    # if len(humans[0]) > 10:
-                    #     self.with_kps = True
-                    #     self.players_kps[i].append(player_kps[i].tolist())
 
 
     def get_classifier_status(self):
         return self.classifier[-1]
+
+
+    def get_player_foot_pixels(self):
+        feet = []
+        for player in ["upper", "lower"]:
+            player_box = self.players_boxes[player][-1]
+            feet.append([(player_box[0] + (player_box[2] - player_box[0]) / 2), player_box[3]])
+        return feet
 
     def to_sql(self):
         pass

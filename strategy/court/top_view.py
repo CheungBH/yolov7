@@ -30,7 +30,7 @@ class TopViewProcessor:
             cv2.circle(frame, (int(ball[0]), int(ball[1])), 45, (0, 255, 0), -1)
         for human in humans:
             cv2.circle(frame, (int(human[0]), int(human[1])), 45, (0, 0, 255), -1)
-        return cv2.resize(frame, (800, 600))
+        return frame
 
     # def transform_player_location(self, matrix, locations):
     #     feet = np.array([(locations[0] + (locations[2] - locations[0]) / 2), locations[3]]).reshape((1, 1, 2))

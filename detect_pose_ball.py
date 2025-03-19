@@ -24,6 +24,7 @@ from utils.pose.plots import colors as pose_colors, plot_skeleton_kpts, plot_one
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 from strategy.court.top_view import TopViewProcessor
 
+top_view_h, top_view_w = 1000, 480
 
 class Queue:
     def __init__(self, max_length, h, w, no_exist_with_prev=False):
@@ -72,42 +73,54 @@ class Queue:
 
     def check_enough(self):
         return self.get_length() == self.max_length
+    
 
 
 def detect():
     adjacent_frame = 4
     regression_frame = 3
     frame_list, tv_list = [], []
-    mask_points =[(627, 414), (1306, 417), (1431, 683), (498, 682)]
+    mask_points = []
 
-
-    classifier_path = "datasets/ball_combine/highlight/highlight.pth"
+    classifier_path = "weights/latest_assets/mobilenet/best_acc.pth"
     model_cfg = "/".join(classifier_path.split("/")[:-1]) + "/model_cfg.yaml"
     label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
     highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
 
-    landing_path = 'datasets/ball_combine/landing_model/GBDT_tff.joblib'
+    landing_path = 'weights/latest_assets/latest_landing.joblib'
     ML_classes = ["flying", "landing"]
     joblib_model = joblib.load(landing_path)
 
-    x_regression_path = 'datasets/ball_combine/regression_model/Ridge_modelx.joblib'
+    x_regression_path = 'weights/latest_assets/x_regression.joblib'
     x_regressor = joblib.load(x_regression_path)
-    y_regression_path = 'datasets/ball_combine/regression_model/Ridge_modely.joblib'
+    y_regression_path = 'weights/latest_assets/y_regression.joblib'
     y_regressor = joblib.load(y_regression_path)
 
+    seqML_classifier = "weights/latest_assets/seqML/model.joblib"
+    seqML_model = joblib.load(seqML_classifier)
+    seqML_class = "weights/latest_assets/seqML/classes.txt"
+    seqML_colors = [(0, 255, 0), (0, 0, 255), (255, 0, 0), (0,0,0)]
+    with open(seqML_class, 'r') as file:
+        seq_ML_classes = [line[:-1] for line in file.readlines()]
+    seq_ML_config = os.path.join(os.path.dirname(seqML_classifier), "config.json")
+    with open(seq_ML_config, 'r') as file:
+        seq_ML_config = json.load(file)
+        seq_num = seq_ML_config["seq_num"]
+        seq_step = seq_ML_config["seq_step"]
+
     pose_weights = opt.pose_weights
-    kpt_label = opt.kpt_label
     ball_weights = opt.ball_weights
     source, view_img, save_txt, imgsz, trace, use_saved_box,player_num = (
         opt.source, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace, opt.use_saved_box, opt.player_num)
     tracker = BoxTracker()
-    save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
+
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
         ('rtsp://', 'rtmp://', 'http://', 'https://'))
 
     # Directories
-    save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
-    (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+    # save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
+    # (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+
 
     # Initialize
     set_logging()
@@ -166,7 +179,22 @@ def detect():
 
     cap = cv2.VideoCapture(source)
     ret, img = cap.read()
+    img_h, img_w = img.shape[:2]
     directory_path = os.path.dirname(source)
+
+    output_folder = opt.output_folder
+    if output_folder:
+        os.makedirs(opt.output_folder, exist_ok=True)
+        topview_video = os.path.join(opt.output_folder, "topview.mp4")
+        output_video = os.path.join(opt.output_folder, "output.mp4")
+        topview_writer = cv2.VideoWriter(topview_video, cv2.VideoWriter_fourcc(*'mp4v'), 30, (top_view_w, top_view_h))
+        output_writer = cv2.VideoWriter(output_video, cv2.VideoWriter_fourcc(*'mp4v'), 30, (img_w, img_h))
+
+
+    if not mask_points:
+        mask_points = click_points(img)
+    cap.release()
+    cv2.destroyAllWindows()
 
     if use_saved_box:
         box_asset_path = os.path.join(directory_path, os.path.basename(source).split(".")[0] + ".json")
@@ -186,17 +214,16 @@ def detect():
         box_assets['mask'] = mask_points
         box_assets['mask_type'] = click_type
 
-    if not mask_points:
-        mask_points = click_points(img)
-    cap.release()
-    cv2.destroyAllWindows()
     court_detector = CourtDetector(mask_points)
     init_lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points)
     central_y, central_x = int((init_lines[9] + init_lines[11])//2), int((init_lines[-12] + init_lines[-10])//2)
 
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
+        if idx < opt.start_with:
+            continue
         if idx == opt.stop_at:
             break
+
         if use_saved_box:
             classifier_result = int(box_assets[str(idx)]["classifier"])
         else:
@@ -229,7 +256,7 @@ def detect():
 
             # Apply NMS
             ball_pred = non_max_suppression(ball_pred, opt.ball_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
-            pose_pred = pose_non_max_suppression(pose_pred, opt.pose_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms, kpt_label=kpt_label)
+            pose_pred = pose_non_max_suppression(pose_pred, opt.pose_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms, kpt_label=True)
             box_assets[idx]["ball"] = ball_pred[0].tolist() #.cpu().tolist()
             box_assets[idx]["person"] = pose_pred[0].tolist()#.cpu().tolist()
             t3 = time_synchronized()
@@ -250,7 +277,7 @@ def detect():
                     if typ == 'pose':
                         # pose_output = det.cpu().tolist()
                         pose_scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
-                        pose_scale_coords(img.shape[2:], det[:, 6:], im0.shape, kpt_label=kpt_label, step=3)
+                        pose_scale_coords(img.shape[2:], det[:, 6:], im0.shape, kpt_label=True, step=3)
 
                         tracked_pose = tracker.update(det.cpu())
                         # Print results
@@ -264,9 +291,10 @@ def detect():
                             # humans_action.append(name[int(cls)])
 
                             c = int(cls)  # integer class
-                            label = f'{name[c]} {id:.2f}'
+                            label = f'id: {id:.2f}, {name[c]} '
                             kpts = det[det_index, 6:]  # 51/3 =17个点
-                            pose_plot_one_box(xyxy, im0, label=label, color=color(c, True), line_thickness=1, kpt_label=kpt_label, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
+                            pose_plot_one_box(xyxy, im0, label=label, color=color(c, True), line_thickness=1,
+                                              kpt_label=True, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
                     else:
                         scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
                         # Print results
@@ -335,36 +363,50 @@ def detect():
             color = (0, 0, 255) if words == "landing" else (0, 255, 0)
             cv2.putText(im0, words, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
 
-        data_manger.second_update(landing=words) # pending -1, flying 0,landing 1
+        kps = data_manger.get_kps_prediction_input(seq_step, seq_num)
+        if kps:
+            seqML_result = seqML_model.predict(np.array(kps)).tolist()
+            for _, (result, player_loc) in enumerate(zip(seqML_result, data_manger.get_player_foot_pixels())):
+                i = int(result)
+                cv2.putText(im0, seq_ML_classes[i], (int(player_loc[0]), int(player_loc[1])),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, seqML_colors[i], 2)
+        else:
+            seqML_result = [-1 for _ in range(player_num)]
+
+        data_manger.second_update(landing=words, kps_pred=seqML_result) # pending -1, flying 0,landing 1
         strategy_assets = data_manger.get_strategy_assets()
 
         # Visualize
-        tv_list.append(top_view_img)
+        tv_list.append(cv2.resize(top_view_img, (top_view_w, top_view_h)))
         frame_list.append(im0)
+
         if idx >= adjacent_frame:
             display_img = frame_list[0]
             cv2.imshow(str(p), display_img)
-            del frame_list[0]
-
             topview_img = tv_list[0]
             cv2.imshow("Top View", topview_img)
+
+            if output_folder:
+                output_writer.write(display_img)
+                topview_writer.write(topview_img)
+
+            del frame_list[0]
             del tv_list[0]
 
-            # frame_id += 1
             cv2.waitKey(1)
 
     if not use_saved_box:
         json.dump(box_assets, box_f,indent =4)
-        json.dump(strategy_assets,box_f_filter, indent=4)
+        json.dump(strategy_assets, box_f_filter, indent=4)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--pose_weights', nargs='+', type=str, default="models\pose_model\last.pt", help='model.pt path(s)')
-    parser.add_argument('--ball_weights', nargs='+', type=str, default=r"models\ball_model\ball_0210\best.pt", help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default=r"source\2s\2s.mp4", help='source')  # file/folder, 0 for webcam
-    parser.add_argument("--output_csv_folder", default=r"landing_csv\2s")
-    parser.add_argument("--output_csv_file", default="2s.csv")
+    parser.add_argument('--pose_weights', nargs='+', type=str, default="weights/latest_assets/yolopose_4lr.pt", help='model.pt path(s)')
+    parser.add_argument('--ball_weights', nargs='+', type=str, default="weights/latest_assets/ball.pt", help='model.pt path(s)')
+    parser.add_argument('--source', type=str, default=r"D:\Tennis\datasets\raw_videos\general\MSc2023\Kang Hong\20231011_kh_yt_8.mp4", help='source')  # file/folder, 0 for webcam
+    parser.add_argument("--output_folder", default="output")
+    # parser.add_argument("--output_csv_file", default="2s.csv")
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--pose-thres', type=float, default=0.25, help='object confidence threshold')
     parser.add_argument('--ball-thres', type=float, default=0.5, help='ball confidence threshold')
@@ -386,6 +428,7 @@ if __name__ == '__main__':
     parser.add_argument('--kpt-label', action='store_true', help='use keypoint labels')
     parser.add_argument("--use_saved_box",action="store_true",help="Load box json for fast inference")
     parser.add_argument('--stop_at', type=int, default=-1, help='')
+    parser.add_argument('--start_with', type=int, default=-1, help='')
     parser.add_argument('--player_num', type=int, default=2, help='')
 
     opt = parser.parse_args()
