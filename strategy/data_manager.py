@@ -133,11 +133,9 @@ class DataManagement:
     def process_human(self, humans):
         if self.player_num == 2:  # self.middle_line
             if len(humans) == 0:
-                for i in range(self.player_num):
-                    self.players_boxes[i].append(self.players_boxes[i][-1])
-                    self.players_actions[i].append(self.players_actions[i][-1])
-                    if self.with_kps:
-                        self.players_kps[i].append(self.players_kps[i][-1])
+                self.players_boxes['upper'].append(self.players_boxes['upper'][-1])
+                self.players_actions['lower'].append(self.players_actions['lower'][-1])
+
             else:
                 priority_order = [2, 0, 1, 3]
                 player_boxes, player_id, player_actions = humans[:, :4], humans[:, 4], humans[:, 5]
