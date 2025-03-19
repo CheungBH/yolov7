@@ -19,8 +19,7 @@ def json_to_csv(json_file_path, csv_file_path):
         writer = csv.writer(csv_file)
         writer.writerows(csv_content)
 
-
-# Example usage
-json_file_path = '/Volumes/ASSETS/Tennis/datasets/raw_videos/general/MSc2023/Kang Hong/20231011_kh_yt_8_filter.json'
-csv_file_path = 'data.csv'
-json_to_csv(json_file_path, csv_file_path)
+if __name__ == '__main__':
+    json_file_path = '/Volumes/ASSETS/Tennis/datasets/raw_videos/general/MSc2023/Kang Hong/20231011_kh_yt_8_filter.json'
+    csv_file_path = 'data.csv'
+    json_to_csv(json_file_path, csv_file_path)
