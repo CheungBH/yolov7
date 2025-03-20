@@ -399,9 +399,10 @@ def detect():
 
         if idx >= adjacent_frame:
             display_img = frame_list[0]
-            cv2.imshow(str(p), display_img)
             topview_img = tv_list[0]
-            cv2.imshow("Top View", topview_img)
+            if not opt.no_show:
+                cv2.imshow("Top View", topview_img)
+                cv2.imshow(str(p), display_img)
 
             if output_folder:
                 output_writer.write(display_img)
@@ -410,7 +411,8 @@ def detect():
             del frame_list[0]
             del tv_list[0]
 
-            cv2.waitKey(opt.wait_key)
+            if not opt.no_show:
+                cv2.waitKey(opt.wait_key)
 
     if not use_saved_box:
         json.dump(box_assets, box_f,indent =4)
@@ -454,6 +456,8 @@ if __name__ == '__main__':
     parser.add_argument('--stop_at', type=int, default=-1, help='')
     parser.add_argument('--start_with', type=int, default=-1, help='')
     parser.add_argument('--player_num', type=int, default=2, help='')
+    parser.add_argument('--no_show', action='store_true', help='update all models')
+
 
     opt = parser.parse_args()
     print(opt)

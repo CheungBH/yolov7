@@ -56,17 +56,17 @@ def main():
         cv2.destroyWindow('image')  # 关闭当前图像窗口
 
     # 3. 对每个视频运行 detect.py
-
-    for file, mask in zip(mp4_files, masks):
+    total_videos = len(mp4_files)
+    for v_idx, (file, mask) in enumerate(zip(mp4_files, masks)):
         mask_str = ' '.join([f'{x}'' ' f'{y}' for x, y in mask])
         video_name = file.split(".")[0]
         # cmd = (f'python detect_analysis.py --source {os.path.join(folder_path, file)} --masks "{mask_str}" '
         #        f' --output_csv_file {"test_csv/" + os.path.join(file.split(".")[0]) + ".csv"} '
         #        f' --project runs/detect --name newcut'
         #        f' --topview_path {"top_view/" + os.path.join(file.split(".")[0]) + "_2.mp4"}')
-        cmd = 'python detect_pose_ball.py --source {} --output_folder {} --masks "{}"'.format(
+        cmd = 'python detect_pose_ball.py --source {} --output_folder {} --masks "{}" --no_show'.format(
             os.path.join(folder_path, file), os.path.join(output_folder, video_name), mask_str)
-        print(cmd)
+        print("processing video {}: {}/{}".format(file, v_idx+1, total_videos))
         subprocess.run(cmd, shell=True)
 
 
