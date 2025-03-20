@@ -2,11 +2,6 @@ import os
 import json
 import cv2
 from collections import defaultdict
-<<<<<<< Updated upstream
-from utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,
-                   calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed)
-from utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info,draw_human_heatmap,draw_ball_heatmap
-=======
 try:
     from .utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,
                        calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed)
@@ -16,7 +11,6 @@ except:
                        calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed)
     from utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info
 
->>>>>>> Stashed changes
 def read_json_file(json_file):
     with open(json_file, 'r') as f:
         datasets = json.load(f)
