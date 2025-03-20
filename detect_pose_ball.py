@@ -414,7 +414,7 @@ def detect():
     json_to_csv(box_assets_filter_path, csv_file_path)
     shutil.copy(source, os.path.join(output_folder, os.path.basename(source)))
     shutil.copy(box_asset_path, os.path.join(output_folder, os.path.basename(box_asset_path)))
-    json_analysis(box_assets_filter_path, source, output_folder)
+    json_analysis(box_assets_filter_path, source, output_folder,0)
 
 
 

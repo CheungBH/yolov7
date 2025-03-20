@@ -5,11 +5,11 @@ from collections import defaultdict
 try:
     from .utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,
                        calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed)
-    from .utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info
+    from .utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info,draw_ball_heatmap,draw_human_heatmap
 except:
     from utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,
                        calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed)
-    from utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info
+    from utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info,draw_ball_heatmap,draw_human_heatmap
 
 def read_json_file(json_file):
     with open(json_file, 'r') as f:
@@ -207,8 +207,8 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
 if __name__ == "__main__":
 
-    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\grass_3\grass3_filter.json"
-    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\grass_3\grass3.mp4"
-    output_video_folder = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\test"
+    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2\20231011_kh_yt_2_filter.json"
+    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\kh_2\20231011_kh_yt_2.mp4"
+    output_video_folder = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2"
     info_json = 0
     main(input_json_file,input_video_file, output_video_folder,info_json)
