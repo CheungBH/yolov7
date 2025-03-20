@@ -89,9 +89,12 @@ def detect():
     label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
     highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
 
-    landing_path = 'weights/latest_assets/latest_landing.joblib'
-    ML_classes = ["flying", "landing"]
-    joblib_model = joblib.load(landing_path)
+    landing_path = 'weights/latest_assets/landing/latest_landing.joblib'
+    curve_class_file = os.path.join(os.path.dirname(landing_path), "classes.txt")
+    with open(curve_class_file, 'r') as file:
+        curve_class = [line[:-1] for line in file.readlines()]
+    curve_model = joblib.load(landing_path)
+    ball_curve_color = [(0, 255, 0), (0, 0, 255)]
 
     x_regression_path = 'weights/latest_assets/x_regression.joblib'
     x_regressor = joblib.load(x_regression_path)
@@ -352,19 +355,22 @@ def detect():
         top_view_img = top_view.visualize_bv(real_ball, real_players)
         court_detector.visualize(im0, lines)
 
-
-        BoxProcessor.enqueue(data_manger.get_ball())
-        BoxRegProcessor.enqueue(data_manger.get_ball())
+        ball_location = data_manger.get_ball()
+        BoxProcessor.enqueue(ball_location)
+        BoxRegProcessor.enqueue(ball_location)
 
         if not BoxProcessor.check_enough():
-            words = "Pending"
-            cv2.putText(im0, "Pending", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+            curve_status = "Pending"
+            if -1 not in ball_location:
+                cv2.putText(im0, curve_status, (int(ball_location[0]), int(ball_location[1])),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
         else:
             ball_locations = BoxProcessor.get_queue()
-            words = ML_classes[
-                int(joblib_model.predict(np.expand_dims(np.array(ball_locations).flatten(), axis=0))[0])]
-            color = (0, 0, 255) if words == "landing" else (0, 255, 0)
-            cv2.putText(im0, words, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+            curve_cls = int(curve_model.predict(np.expand_dims(np.array(ball_locations).flatten(), axis=0))[0])
+            curve_status = curve_class[curve_cls]
+            if -1 not in ball_location:
+                cv2.putText(im0, curve_status, (int(ball_location[0]), int(ball_location[1])),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, ball_curve_color[curve_cls], 2)
 
         kps = data_manger.get_kps_prediction_input(seq_step, seq_num)
         if kps:
@@ -376,7 +382,7 @@ def detect():
         else:
             seqML_result = [-1 for _ in range(player_num)]
 
-        data_manger.second_update(landing=words, kps_pred=seqML_result) # pending -1, flying 0,landing 1
+        data_manger.second_update(landing=curve_status, kps_pred=seqML_result) # pending -1, flying 0,landing 1
         strategy_assets = data_manger.get_strategy_assets()
 
         # Visualize
@@ -396,7 +402,7 @@ def detect():
             del frame_list[0]
             del tv_list[0]
 
-            cv2.waitKey(1)
+            cv2.waitKey(opt.wait_key)
 
     if not use_saved_box:
         json.dump(box_assets, box_f,indent =4)
@@ -428,11 +434,12 @@ if __name__ == '__main__':
     parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
-    parser.add_argument('--augment', action='store_true', help='augmented inference')
+    parser.add_argument('--wait_key', type=int, default=0, help='wait key for cv2.waitKey')
+    # parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
-    parser.add_argument('--project', default='runs/detect', help='save results to project/name')
-    parser.add_argument('--name', default='exp', help='save results to project/name')
-    parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
+    # parser.add_argument('--project', default='runs/detect', help='save results to project/name')
+    # parser.add_argument('--name', default='exp', help='save results to project/name')
+    # parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--no-trace', action='store_true', help='don`t trace model')
     parser.add_argument('--kpt-label', action='store_true', help='use keypoint labels')
     parser.add_argument("--use_saved_box",action="store_true",help="Load box json for fast inference")
