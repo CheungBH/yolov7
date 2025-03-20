@@ -4,7 +4,7 @@ import cv2
 from collections import defaultdict
 from utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,
                    calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed)
-from utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info
+from utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info,draw_human_heatmap,draw_ball_heatmap
 def read_json_file(json_file):
     with open(json_file, 'r') as f:
         datasets = json.load(f)
@@ -144,8 +144,7 @@ def approached_speed(data,upper_state_list,lower_state_list):
     return upper_approach_speed, lower_approach_speed
 
 
-def main(csv_file,video_file, output_video_folder):
-    previous_positions = []
+def main(csv_file,video_file, output_video_folder, info_json):
     data = read_json_file(csv_file)
     cap, fps, width, height = initialize_video_writer(video_file, output_video_folder)
     total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -162,6 +161,11 @@ def main(csv_file,video_file, output_video_folder):
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     output_path = os.path.join(output_video_folder, 'analysis_output.mp4')
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    draw_ball_heatmap(data, precise_landings,output_video_folder)
+    draw_human_heatmap(data,upper_hit_time, output_video_folder,'upper')
+    draw_human_heatmap(data, lower_hit_time, output_video_folder,'lower')
+
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -193,4 +197,5 @@ if __name__ == "__main__":
     input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\grass_3\grass3_filter.json"
     input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\grass_3\grass3.mp4"
     output_video_folder = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\test"
-    main(input_json_file,input_video_file, output_video_folder)
+    info_json = 0
+    main(input_json_file,input_video_file, output_video_folder,info_json)

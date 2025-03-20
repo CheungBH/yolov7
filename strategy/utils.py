@@ -3,6 +3,9 @@ import ast
 import math
 from collections import Counter
 import cv2
+import matplotlib.pyplot as plt
+import os
+import numpy as np
 
 def normalize_keypoints(keypoints, bbox):
     x1, y1, x2, y2 = bbox
@@ -374,8 +377,14 @@ def calculate_approach_speed(states, coordinates):
 
 def draw_approach_speed(frame,frame_id,approach_speed,coordinate=(100, 100)):
     if frame_id in approach_speed:
-        value = approach_speed[frame_id]
-        cv2.putText(frame, 'Approach_speed: {}'.format(value), coordinate,
+        start = end = frame_id
+        while start - 1 in approach_speed:
+            start -= 1
+        while end + 1 in approach_speed:
+            end += 1
+        values = [approach_speed[i] for i in range(start, end + 1)]
+        average_value = sum(values) / len(values)
+        cv2.putText(frame, 'Approach_speed: {}'.format(round(average_value,2)), coordinate,
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
 def draw_ball_speed(frame, frame_id,ball_speed,coordinate=(100, 100)):
@@ -455,3 +464,63 @@ def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper
     elif frame_id in lower_hit_time:
         cv2.putText(frame, 'Hitting', (int(lower_box[2]), int(lower_box[3])),
                     cv2.FONT_HERSHEY_SIMPLEX, 1,lower_color, 2)
+
+
+def plot_heatmap(frequency_matrix, title="Heatmap", cmap="viridis",output="heatmap.png"):
+    plt.figure(figsize=(7, 12))
+    plt.imshow(frequency_matrix, cmap=cmap, aspect="auto", origin="upper", interpolation="nearest")
+    # Add color bar
+    # cbar = plt.colorbar()
+    # cbar.set_label("Point Count")
+    plt.title(title)
+    plt.xlabel("Grid Columns")
+    plt.ylabel("Grid Rows")
+    plt.savefig(output)
+def compute_frequency_matrix(M, N, points, m, n):
+    # Initialize the frequency matrix with zeros
+    frequency_matrix = [[0 for _ in range(n)] for _ in range(m)]
+    # Compute the size of each grid cell
+    cell_height = M / m
+    cell_width = N / n
+    # Iterate over all points and count them in the corresponding grid cell
+    for x, y in points:
+        # Check if the point is within the bounds of the rectangle
+        if 0 <= x < N and 0 <= y < M:
+            # Determine the grid cell indices
+            col = int(x // cell_width)
+            row = int(y // cell_height)
+            # Ensure the indices are within bounds (due to floating-point precision issues)
+            if 0 <= row < m and 0 <= col < n:
+                frequency_matrix[row][col] += 1
+    return frequency_matrix
+def draw_human_heatmap(data,hit_time,output_video_folder,side='upper'):
+    output_path = os.path.join(output_video_folder, '{}_human_hit_heatmap.png'.format(side))
+    M, N =  3500,1600
+    m, n =  35,16
+    human_hit_location =[]
+    for i in hit_time:
+        if side == 'upper':
+            human_hit_location.append(data['real_upper_human'][i])
+        elif side == 'lower':
+            human_hit_location.append(data['real_lower_human'][i])
+    human_matrix = np.array(compute_frequency_matrix(M, N, human_hit_location, m, n))
+    plot_heatmap(human_matrix, title="Human", output=output_path)
+
+def draw_ball_heatmap(data,precise_landings,output_video_folder):
+    M, N =  3500,1600
+    m, n =  35,16
+    output_path = os.path.join(output_video_folder, 'ball_heatmap.png')
+    ball_landing_location =[]
+    for i in precise_landings:
+        if data['ball'][i] == [-1,-1]:
+            j = i - 1
+            while j >= 0 and data['ball'][j] == [-1, -1]:
+                j -= 1
+            if j >= 0:
+                ball_landing_location.append(data['real_ball'][j])
+            else:
+                ball_landing_location.append([500,500])
+        else:
+            ball_landing_location.append(data['real_ball'][i])
+    ball_landing_matrix = np.array(compute_frequency_matrix(M, N, ball_landing_location, m, n))
+    plot_heatmap(ball_landing_matrix, title="Ball", output=output_path)
