@@ -4,6 +4,8 @@ import cv2
 import csv
 import ast
 import numpy as np
+import math
+from collections import defaultdict
 
 def read_csv_file(csv_file):
     data = []
@@ -56,18 +58,6 @@ def read_json_file(json_file):
         data.append(row)
 
     return data
-# def process_rally_changes(data):
-#     rally_change_list = []
-#     rally_cnt_prev = data[0][6]
-#     for row in data:
-#         rally_cnt = row[6]
-#         frame = int(row[7])
-#         if rally_cnt != rally_cnt_prev:
-#             rally_change_list.append(frame)
-#         rally_cnt_prev = rally_cnt
-#     rally_change_list = [rally_change_list[i] for i in range(len(rally_change_list)) if i == 0 or rally_change_list[i] - rally_change_list[i-1] > 3]
-#     rally_change_intervals = [[rally_change_list[i], rally_change_list[i+1]] for i in range(len(rally_change_list)-1)] #第一球和最后一球不计入
-#     return rally_change_list, rally_change_intervals
 
 def process_rally_changes(data):
     first_frame = int(data[0][7])
@@ -88,13 +78,15 @@ def process_rally_changes(data):
 
 def find_ball_list(data):
     ball_list=[[500,500]]*int(data[0][7])
+    real_ball_list = []
     upper_box_list=[[100,100,200,200]]*int(data[0][7])
     lower_box_list=[[100,100,200,200]]*int(data[0][7])
     for row in data:
         ball_list.append(row[5]) if row[5]!= (-1,-1) else ball_list.append(ball_list[-1])
+        real_ball_list.append(row[9][-1])
         upper_box_list.append(row[1])
         lower_box_list.append(row[3])
-    return ball_list,upper_box_list,lower_box_list
+    return ball_list,upper_box_list,lower_box_list,real_ball_list
 
 def get_human_hit(rally_change_intervals, data, height):
     human_hits = []
@@ -170,7 +162,6 @@ def precise_landing(rally_change_intervals, data):
                     window = state_frame_ls[i:i + window_size]
                     flattened_window = [item for sublist in window for item in sublist]
                     count_landing = flattened_window.count('landing')
-
                     # 如果当前窗口中 landing 的数量大于之前的最大值，则更新最大值和窗口
                     if count_landing > max_count:
                         max_count = count_landing
@@ -180,10 +171,10 @@ def precise_landing(rally_change_intervals, data):
                 # adjacent_3_state = [row[4].lower() for row in data if first_landing <= int(row[7]) <= first_landing + 2]
                 # precise_landing = first_landing - (3 - adjacent_3_state.count("landing")) - 1
                 # precise_landings.append(precise_landing)
-
                 adjacent_5_state = [row[4].lower() for row in data if first_landing <= int(row[7]) <= first_landing + 4]
                 precise_landing = first_landing - (5 - adjacent_5_state.count("landing")) - 2
                 precise_landings.append(precise_landing)
+
 
     return precise_landings
 
@@ -212,7 +203,6 @@ def upper_lower_state(upper_hit,lower_hit,upper_hit_intervals,lower_hit_interval
     upper_ret_rea_app_list = []
     lower_ret_rea_app_list = []
 
-    print('upper')
     for i in range(len(upper_hit_intervals)):
         upper_boxs = []
         start, end = upper_hit_intervals[i]
@@ -241,10 +231,7 @@ def upper_lower_state(upper_hit,lower_hit,upper_hit_intervals,lower_hit_interval
             else:
                 ready_start = 'None'
                 upper_ret_rea_app_list.append(ready_start)
-                # print(f'ready_start:{ready_start}')
-    # print(f'upper_ret_rea_app_list:{upper_ret_rea_app_list}')
 
-    print('lower')
     for i in range(len(lower_hit_intervals)):
         lower_boxs = []
         start, end = lower_hit_intervals[i]
@@ -415,7 +402,8 @@ def cross_straight(hit_times, data, width):
 #                     cross_straight_list[j] = [1,start_point, end_point]
 #     return cross_straight_list
 
-def draw_state_info(frame, upper_hit, lower_hit, frame_count, upper_state_list, lower_state_list, upper_box_list, lower_box_list, upper_direction_list, lower_direction_list):
+def draw_state_info(frame, upper_hit, lower_hit, frame_count, upper_state_list, lower_state_list, upper_box_list,
+                    lower_box_list, upper_direction_list, lower_direction_list,r_id):
     # 绘制 upper_hit 和 lower_hit 信息
     text = f"Upper Hit: {' '.join(map(str, upper_hit))}\nLower Hit: {' '.join(map(str, lower_hit))}"
     y0, dy = 30, 30
@@ -426,24 +414,18 @@ def draw_state_info(frame, upper_hit, lower_hit, frame_count, upper_state_list, 
     lower_state = 'hit' if lower_state_list[frame_count] == 0 else 'return' if lower_state_list[frame_count] == 1 else 'ready' if lower_state_list[frame_count] == 2 else 'approach'
     upper_direction_state = 'change' if upper_direction_list[frame_count] == 1 else 'same' if upper_direction_list[frame_count] == 0 else 'None'
     lower_direction_state = 'change' if lower_direction_list[frame_count] == 1 else 'same' if lower_direction_list[frame_count] == 0 else 'None'
-
-
-    # if lower_state_list[frame_count]==2 and lower_state_list[frame_count-1]==1:
-    #     cv2.putText(frame, f'Upper Hit', (10, y0 + dy), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-    # if upper_state_list[frame_count]==2 and upper_state_list[frame_count-1]==1:
-    #     cv2.putText(frame, f'Lower Hit', (10, y0 + dy), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
-    # # 绘制 upper_state 和 lower_state 信息
     upper_state_color = (0, 0, 255) if upper_state == 'hit' else (0, 255, 0) if upper_state == 'return' else (255, 0, 255) if upper_state == 'ready' else (255, 0, 0)
     lower_state_color = (0, 0, 255) if lower_state == 'hit' else (0, 255, 0) if lower_state == 'return' else (255, 0, 255) if lower_state == 'ready' else (255, 0, 0)
     upper_direction_color = (255, 0, 255) if upper_direction_state == 'change' else (0, 255, 0) if upper_direction_state == 'same' else (255, 0, 0)
     lower_direction_color = (255, 0, 255) if lower_direction_state == 'change' else (0, 255, 0) if lower_direction_state == 'same' else (255, 0, 0)
 
 
-    cv2.putText(frame, f'{upper_state}', (int(upper_box_list[frame_count][0]), int(upper_box_list[frame_count][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, upper_state_color, 2)
-    cv2.putText(frame, f'{lower_state}', (int(lower_box_list[frame_count][0]), int(lower_box_list[frame_count][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, lower_state_color, 2)
-    cv2.putText(frame, f'Upper Direction: {upper_direction_state}', (10, y0 + 0 * dy), cv2.FONT_HERSHEY_SIMPLEX, 1, upper_direction_color, 2)
-    cv2.putText(frame, f'Lower Direction: {lower_direction_state}', (10, y0 + 1 * dy), cv2.FONT_HERSHEY_SIMPLEX, 1, lower_direction_color, 2)
+    # cv2.putText(frame, f'{upper_state}', (int(upper_box_list[frame_count][0]), int(upper_box_list[frame_count][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, upper_state_color, 2)
+    # cv2.putText(frame, f'{lower_state}', (int(lower_box_list[frame_count][0]), int(lower_box_list[frame_count][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, lower_state_color, 2)
+    # cv2.putText(frame, f'Upper Direction: {upper_direction_state}', (10, y0 + 0 * dy), cv2.FONT_HERSHEY_SIMPLEX, 1, upper_direction_color, 2)
+    # cv2.putText(frame, f'Lower Direction: {lower_direction_state}', (10, y0 + 1 * dy), cv2.FONT_HERSHEY_SIMPLEX, 1, lower_direction_color, 2)
+
+
 
 
 def draw_ball_boxes_arrows(frame, row, precise_landings, frame_count, previous_positions, ball_list, cross_straight_list):
@@ -525,21 +507,60 @@ def initialize_video_writer(video_file, output_folder):
     out = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
     return cap, out, fps, width, height
 
+def calculate_ball_speed(real_ball_list,upper_hit,lower_hit,hit_times):
+    hit_speed= defaultdict(list)
+    merged_list = sorted(set(upper_hit + lower_hit))
+    hit_intervals = []
+    n = len(merged_list)
+    for i in range(n - 1):
+        current = merged_list[i]
+        next_val = merged_list[i + 1]
+        # 检查是否需要跳过某些区间
+        if current in upper_hit and next_val in upper_hit or current in lower_hit and next_val in lower_hit:
+            continue
+        hit_intervals.append([current, next_val])
+    for hit_interval in hit_intervals:
+        one_hit = hit_interval[0]
+        another_hit = hit_interval[1]
+        valid_speed_list = calculate_speed(real_ball_list[one_hit:another_hit])
+        hit_speed[one_hit] = sum(valid_speed_list)/ len(valid_speed_list) if valid_speed_list!=[] else 0
+    # for hit_interval in hit_times:
+    #     one_hit = hit_interval[0]
+    #     another_hit = hit_interval[1]
+    #     valid_speed_list = calculate_speed(real_ball_list[one_hit:another_hit])
+    #     hit_speed[one_hit] = sum(valid_speed_list)/ len(valid_speed_list) if valid_speed_list!=[] else 0
+    return hit_speed
+
+
+def calculate_speed(position):
+    valid_position=[]
+    valid_distance=[]
+    for i in range(len(position)-1):
+        if position[i] != [-1,-1] and position[i+1] != [-1,-1]:
+            x1, y1 = position[i]
+            x2, y2 = position[i+1]
+            valid_position.append([position[i],position[i+1]])
+            valid_distance.append(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2))
+    return valid_distance
+def calculate_approach_speed(ball_list,upper_hit,lower_hit):
+    pass
+
 def main(csv_file,video_file, output_video_folder):
     previous_positions = []
-    # data = read_csv_file(csv_file)
     data = read_json_file(csv_file)
     cap, out, fps, width, height = initialize_video_writer(video_file, output_video_folder)
     total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     rally_change_list, rally_change_intervals = process_rally_changes(data)
-    ball_list,upper_box_list,lower_box_list = find_ball_list(data)
+    ball_list,upper_box_list,lower_box_list,real_ball_list = find_ball_list(data)
     human_hits = get_human_hit(rally_change_intervals, data, height)
     upper_hit, lower_hit, hit_times,upper_hit_intervals,lower_hit_intervals = get_hit_times(rally_change_intervals, human_hits, data)
+    ball_speed = calculate_ball_speed(real_ball_list,upper_hit,lower_hit,hit_times)
     upper_state_list, lower_state_list, upper_ret_rea_app_list, lower_ret_rea_app_list = upper_lower_state(upper_hit, lower_hit, upper_hit_intervals, lower_hit_intervals, data)
     upper_direction_list, lower_direction_list = change_direction(upper_ret_rea_app_list, lower_ret_rea_app_list, data)
     cross_straight_list = cross_straight(hit_times, data, width)
     precise_landings = precise_landing(rally_change_intervals, data)
+    approach_speed = calculate_approach_speed(ball_list,upper_hit,lower_hit)
 
     frame_count = 0
     while cap.isOpened():
@@ -549,8 +570,16 @@ def main(csv_file,video_file, output_video_folder):
         for r_id, row in enumerate(data):
             if int(row[7]) == frame_count:
                 draw_ball_boxes_arrows(frame, row, precise_landings, frame_count, previous_positions,ball_list, cross_straight_list)
-            draw_state_info(frame, upper_hit, lower_hit, frame_count, upper_state_list, lower_state_list,upper_box_list,lower_box_list, upper_direction_list, lower_direction_list)
-
+            draw_state_info(frame, upper_hit, lower_hit, frame_count, upper_state_list, lower_state_list,upper_box_list,lower_box_list,
+                            upper_direction_list, lower_direction_list,r_id)
+        cv2.putText(frame, 'frame_id: {}'.format(data[frame_count][7]), (100, 100),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        cv2.putText(frame, 'rally_cnt: {}'.format(data[frame_count][6]), (100, 150),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        for k,value in ball_speed.items():
+            if k <= frame_count <= k+10:
+                cv2.putText(frame, 'ball_speed: {}'.format(value), (1000, 150),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         out.write(frame)
         cv2.imshow('Video', frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -565,16 +594,6 @@ def main(csv_file,video_file, output_video_folder):
     # print(f"{csv_file}已处理并保存至{output_video_folder}")
 
 if __name__ == "__main__":
-    # source_folder = r"D:\Ai_tennis\yolov7_main\test_video\Hard"
-    # def process_csvs(source_folder):
-    #     for file_name in os.listdir(source_folder):
-    #         if os.path.isdir(os.path.join(source_folder, file_name)):
-    #             csv_file = os.path.join(source_folder, file_name, file_name + ".csv")
-    #             video_file = os.path.join(source_folder, file_name, file_name + ".mp4")
-    #             try:
-    #                 main(csv_file,video_file)
-    #             except Exception as e:
-    #                 pass
 
     def process_csvs(input_csv_folder, input_video_folder, output_video_folder):
         for csv_name in os.listdir(input_csv_folder):
@@ -587,15 +606,10 @@ if __name__ == "__main__":
                 pass
 
 
-    # input_csv_folder = r"D:\Ai_tennis\yolov7_main\test_csv\Grass"
-    # input_video_folder = r"D:\Ai_tennis\yolov7_main\test_video\Grass"
-    # output_video_folder = r"D:\Ai_tennis\yolov7_main\test_video\landing_model_0202"
-    #
-    # process_csvs(input_csv_folder, input_video_folder, output_video_folder)
 
     #input_csv_file = r"C:\Users\User\Desktop\hku\yolov7\output\output3\output_2.csv"
-    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\grass3_filter.json"
-    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\grass3.mp4"
+    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\grass_3\grass3_filter.json"
+    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\grass_3\grass3.mp4"
     output_video_folder = r"C:\sers\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\test"
 
     main(input_json_file,input_video_file, output_video_folder)
