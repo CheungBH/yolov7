@@ -434,7 +434,7 @@ if __name__ == '__main__':
     parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
-    parser.add_argument('--wait_key', type=int, default=0, help='wait key for cv2.waitKey')
+    parser.add_argument('--wait_key', type=int, default=1, help='wait key for cv2.waitKey')
     # parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
     # parser.add_argument('--project', default='runs/detect', help='save results to project/name')
