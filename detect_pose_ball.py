@@ -3,6 +3,7 @@ import time
 import os
 from scripts.json2csv import json_to_csv
 import json
+from strategy.json_analysis import main as json_analysis
 from strategy.data_manager import DataManagement
 from strategy.tracker.sort_tracker import BoxTracker
 from pathlib import Path
@@ -413,13 +414,15 @@ def detect():
     json_to_csv(box_assets_filter_path, csv_file_path)
     shutil.copy(source, os.path.join(output_folder, os.path.basename(source)))
     shutil.copy(box_asset_path, os.path.join(output_folder, os.path.basename(box_asset_path)))
+    json_analysis(box_assets_filter_path, source, output_folder)
+
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pose_weights', nargs='+', type=str, default="weights/latest_assets/yolopose_4lr.pt", help='model.pt path(s)')
     parser.add_argument('--ball_weights', nargs='+', type=str, default="weights/latest_assets/ball.pt", help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default=r"D:\Tennis\datasets\raw_videos\general\MSc2023\Kang Hong\20231011_kh_yt_8.mp4", help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default=r"D:\Tennis\datasets\raw_videos\general\MSc2023\Wang Tianhan\20231011_wth_yt_1.mp4", help='source')  # file/folder, 0 for webcam
     parser.add_argument("--output_folder", default="output")
     # parser.add_argument("--output_csv_file", default="2s.csv")
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
@@ -435,7 +438,7 @@ if __name__ == '__main__':
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
     parser.add_argument('--wait_key', type=int, default=1, help='wait key for cv2.waitKey')
-    # parser.add_argument('--augment', action='store_true', help='augmented inference')
+    parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
     # parser.add_argument('--project', default='runs/detect', help='save results to project/name')
     # parser.add_argument('--name', default='exp', help='save results to project/name')

@@ -2,9 +2,21 @@ import os
 import json
 import cv2
 from collections import defaultdict
+<<<<<<< Updated upstream
 from utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,
                    calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed)
 from utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info,draw_human_heatmap,draw_ball_heatmap
+=======
+try:
+    from .utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,
+                       calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed)
+    from .utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info
+except:
+    from utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,
+                       calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed)
+    from utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info
+
+>>>>>>> Stashed changes
 def read_json_file(json_file):
     with open(json_file, 'r') as f:
         datasets = json.load(f)
@@ -170,16 +182,23 @@ def main(csv_file,video_file, output_video_folder, info_json):
         ret, frame = cap.read()
         if not ret:
             break
+
+        court_location = data['court'][frame_id]
+        upper_left_corner, upper_right_corner = (int(court_location[0])-100, int(court_location[1])), (int(court_location[2]), int(court_location[3]))
+        middle_left, middle_right = (int(court_location[8])-100, int(court_location[9])), (int(court_location[10]), int(court_location[11]))
+        lower_left_corner, lower_right_corner = (int(court_location[4])-100, int(court_location[5])), (int(court_location[6]), int(court_location[7]))
+
         cv2.putText(frame, 'frame_id: {}'.format(frame_id), (100, 100),
                      cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
-        cv2.putText(frame, 'rally_cnt: {}'.format(data['rally_cnt'][frame_id]), (1000, 300),
+        cv2.putText(frame, 'rally_cnt: {}'.format(data['rally_cnt'][frame_id]), middle_right,
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        draw_approach_speed(frame,frame_id,upper_approach_speed,(100,200))
-        draw_approach_speed(frame, frame_id, lower_approach_speed, (100, 400))
-        draw_ball_speed(frame, frame_id,ball_speed,(100,300))
-        draw_change_directions(frame, frame_id,upper_direction_list,(1000,200))
-        draw_change_directions(frame, frame_id, lower_direction_list, (1000, 400))
+        draw_approach_speed(frame,frame_id,upper_approach_speed,upper_left_corner)
+        draw_approach_speed(frame, frame_id, lower_approach_speed, lower_left_corner)
+        draw_ball_speed(frame, frame_id,ball_speed,middle_left)
+        draw_change_directions(frame, frame_id,upper_direction_list,upper_right_corner)
+        draw_change_directions(frame, frame_id, lower_direction_list, lower_right_corner)
         draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_landings)
+
         draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time)
         out.write(frame)
         cv2.imshow('Video', frame)
