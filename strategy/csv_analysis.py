@@ -420,8 +420,8 @@ def draw_state_info(frame, upper_hit, lower_hit, frame_count, upper_state_list, 
     lower_direction_color = (255, 0, 255) if lower_direction_state == 'change' else (0, 255, 0) if lower_direction_state == 'same' else (255, 0, 0)
 
 
-    # cv2.putText(frame, f'{upper_state}', (int(upper_box_list[frame_count][0]), int(upper_box_list[frame_count][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, upper_state_color, 2)
-    # cv2.putText(frame, f'{lower_state}', (int(lower_box_list[frame_count][0]), int(lower_box_list[frame_count][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, lower_state_color, 2)
+    cv2.putText(frame, f'{upper_state}', (int(upper_box_list[frame_count][0]), int(upper_box_list[frame_count][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, upper_state_color, 2)
+    cv2.putText(frame, f'{lower_state}', (int(lower_box_list[frame_count][0]), int(lower_box_list[frame_count][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, lower_state_color, 2)
     # cv2.putText(frame, f'Upper Direction: {upper_direction_state}', (10, y0 + 0 * dy), cv2.FONT_HERSHEY_SIMPLEX, 1, upper_direction_color, 2)
     # cv2.putText(frame, f'Lower Direction: {lower_direction_state}', (10, y0 + 1 * dy), cv2.FONT_HERSHEY_SIMPLEX, 1, lower_direction_color, 2)
 
@@ -441,7 +441,6 @@ def draw_ball_boxes_arrows(frame, row, precise_landings, frame_count, previous_p
     if len(previous_positions) > 6:
         previous_positions.pop(0)
 
-    # 绘制当前帧及之前5帧的球位置
     for i, position in enumerate(reversed(previous_positions)):
         alpha = 1.0 - i * 0.1
         overlay = frame.copy()
@@ -586,12 +585,10 @@ def main(csv_file,video_file, output_video_folder):
             break
 
         frame_count += 1
-        # print(frame_count)
 
     cap.release()
     out.release()
     cv2.destroyAllWindows()
-    # print(f"{csv_file}已处理并保存至{output_video_folder}")
 
 if __name__ == "__main__":
 
@@ -606,8 +603,6 @@ if __name__ == "__main__":
                 pass
 
 
-
-    #input_csv_file = r"C:\Users\User\Desktop\hku\yolov7\output\output3\output_2.csv"
     input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\grass_3\grass3_filter.json"
     input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\grass_3\grass3.mp4"
     output_video_folder = r"C:\sers\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\test"

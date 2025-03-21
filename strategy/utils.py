@@ -325,6 +325,23 @@ def hit_plus(state,intervals,human_action,hand,key='upper'):
         state[start:end + 1] = [valid_action] * (end - start + 1)
     return state
 
+def count_segments(data):
+    if not data:  # 如果列表为空
+        return 0, 0
+
+    count_0 = 0  # 记录 0 的段数
+    count_1 = 0  # 记录 1 的段数
+
+    previous_value = None  # 用于记录前一个值
+
+    for value in data:
+        if value == 'forehand' and value != previous_value:
+            count_0 += 1
+        elif value == 'backhand' and value != previous_value:
+            count_1 += 1
+        previous_value = value  # 更新前一个值
+    return count_0, count_1
+
 def is_in_rectangle(value, rect):
     return rect[0][0] <= value[0] <= rect[1][0] and rect[0][1] <= value[1] <= rect[1][1]
 
@@ -386,16 +403,27 @@ def calculate_change_direction(states, coordinates,limit_area=0):
 
     return state_list
 
+def calculate_ratio(data,key='forehand'):
+    count_0 = data.count('key')
+    count_1 = data.count('forehand')
+    count_2 = data.count('backhand')
+    count_3 = data.count('overhead')
+    total_count = count_1 + count_2 + count_3
+    if total_count == 0:
+        return 0
+    ratio = count_1 / total_count
+    return ratio
 
-def calculate_approach_speed(states, coordinates):
+def calculate_approach_speed(states, coordinates,total_distance):
     speeds_dict = {}
     for i, state in enumerate(states):
         if state == 'approach':
             x1, y1 = coordinates[i-1]
             x2, y2 = coordinates[i]
             distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+            total_distance.append(distance)
             speeds_dict[i] = round(distance,2)/1
-    return speeds_dict
+    return speeds_dict,total_distance
 
 def draw_approach_speed(frame,frame_id,approach_speed,coordinate=(100, 100)):
     if frame_id in approach_speed:
@@ -431,6 +459,7 @@ def draw_change_directions(frame, frame_id, direction_list, coordinate=(100, 100
                 cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
     cv2.putText(frame, f'count: {change_count}', (coordinate[0], coordinate[1] + 60),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    return change_count
 
 
 def draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_landings):

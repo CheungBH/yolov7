@@ -6,12 +6,12 @@ from collections import defaultdict
 from numpy.array_api import result_type
 
 try:
-    from .utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,filter_ball,is_in_rectangle,
-                       calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed)
+    from .utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,filter_ball,is_in_rectangle,count_segments,
+                       calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed,calculate_ratio)
     from .utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info,draw_ball_heatmap,draw_human_heatmap
 except:
-    from utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,filter_ball,is_in_rectangle,
-                       calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed)
+    from utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,filter_ball,is_in_rectangle,count_segments,
+                       calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed,calculate_ratio)
     from utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info,draw_ball_heatmap,draw_human_heatmap
 
 def read_json_file(json_file):
@@ -21,6 +21,7 @@ def read_json_file(json_file):
                                       'lower_human','lower_actions','real_lower_human',"lower_human_kps_pred",
                                 "upper_human_kps_pred",'ball','ball_prediction','curve_status','real_ball','rally_cnt','middle_line','court'])
     data['ball'] = filter_ball(data['ball'])
+    data['real_ball'] = filter_ball(data['real_ball'])
 
     human_kps_pred = {
         0: "left to right",
@@ -88,7 +89,9 @@ def get_hit_times(data,rally_change_intervals):
     return hit_time,hit_intervals,upper_hit_time,upper_hit_intervals,lower_hit_time,lower_hit_intervals
 
 
+
 def calculate_ball_speed(data,upper_hit,lower_hit, valid_ratio=0.4):
+    ball_speed_list =[]
     real_ball_list = data['real_ball']
     hit_speed= defaultdict(list)
     merged_list = sorted(set(upper_hit + lower_hit))
@@ -104,11 +107,15 @@ def calculate_ball_speed(data,upper_hit,lower_hit, valid_ratio=0.4):
         one_hit = hit_interval[0]
         another_hit = hit_interval[1]
         valid_speed_list = calculate_speed(real_ball_list[one_hit:another_hit])
+
         # begin_hit, end_hit = (int(one_hit + valid_ratio * (another_hit - one_hit)),
         #                       int(one_hit + (1 - valid_ratio) * (another_hit - one_hit)))
         # valid_speed_list = calculate_speed(real_ball_list[begin_hit:end_hit])
+
+        ball_speed_list.append(valid_speed_list)
+
         hit_speed[one_hit] = sum(valid_speed_list)/ len(valid_speed_list) if valid_speed_list!=[] else 0
-    return hit_speed
+    return hit_speed,ball_speed_list
 
 
 def precise_landing(data,rally_change_intervals):
@@ -125,9 +132,11 @@ def precise_landing(data,rally_change_intervals):
 def finish_analysis(data,serve_side,precise_landings):
     serve_list = ['upper', 'lower']
     #court = [[290, 560], [1380, 2930]]# double
-    court = [[424,560],[1240,2930]]
+    #court = [[424,560],[1240,2930]]
+    upper_court = [[424,560],[1240,1745]]
+    lower_court = [[424,1745],[1240,2930]]
     if not precise_landings:
-        return "Not sure"
+        return "Not sure",[-1,-1]
     real_ball = data.get('real_ball', [])
     last_landing = None
     for i in range(precise_landings[-1], -1, -1):
@@ -135,11 +144,11 @@ def finish_analysis(data,serve_side,precise_landings):
             last_landing = real_ball[i]
             break
     if last_landing is None:
-        return "Not sure"
-    if is_in_rectangle(last_landing, court):
-        return serve_side
+        return "Not sure",[-1,-1]
+    if (serve_side == 'upper' and is_in_rectangle(last_landing, lower_court)) or (serve_side == 'lower' and is_in_rectangle(last_landing, upper_court)) :
+        return serve_side,last_landing
     else:
-        return serve_list[1 - serve_list.index(serve_side)]
+        return serve_list[1 - serve_list.index(serve_side)],last_landing
 
 def cross_straight(data, hit_time):
     cross_line = defaultdict(list)
@@ -181,9 +190,60 @@ def change_direction(data,upper_state_list,lower_state_list):
 def approached_speed(data,upper_state_list,lower_state_list):
     upper_real_box = data['real_upper_human']
     lower_real_box = data['real_lower_human']
-    upper_approach_speed = calculate_approach_speed(upper_state_list,upper_real_box)
-    lower_approach_speed = calculate_approach_speed(lower_state_list,lower_real_box)
-    return upper_approach_speed, lower_approach_speed
+    total_distance_upper = []
+    total_distance_lower = []
+    upper_approach_speed = calculate_approach_speed(upper_state_list,upper_real_box,total_distance_upper)
+    lower_approach_speed = calculate_approach_speed(lower_state_list,lower_real_box,total_distance_lower)
+    return upper_approach_speed, lower_approach_speed,total_distance_upper,total_distance_lower
+
+def write_json(path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
+               upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower):
+    box_assets = {}
+    upper_court = [[424,560],[1240,1745]]
+    lower_court = [[424,1745],[1240,2930]]
+
+    real_upper_human = data['real_upper_human']
+    real_lower_human = data['real_lower_human']
+
+    box_assets['rally_cnt'] = max(data['rally_cnt'])
+    box_assets['serve_player'] = serve_side
+    box_assets['success_shot'] = True if serve_side == game_winner else False
+    if serve_side =='upper' and is_in_rectangle(last_landing,upper_court)  or serve_side =='lower' and is_in_rectangle(last_landing,lower_court):
+        box_assets['Ending_condition'] = 'Downnet'
+    else:
+        box_assets['Ending_condition'] = 'outside'
+    box_assets['Point_duration'] = data['frame_id'][-1]/fps
+
+    flattened_list = [item for sublist in ball_speed_list for item in sublist]
+    box_assets['ball_average_speed'] = sum(flattened_list)/len(flattened_list)
+    box_assets['ball_max_speed'] = max(flattened_list)
+
+    box_assets['total_receiver_distance_upper'] = sum(total_receiver_distance_upper)
+    box_assets['total_receiver_distance_lower'] = sum(total_receiver_distance_lower)
+    box_assets['total_receiver_speed_upper'] = sum(total_receiver_distance_upper)/len(total_receiver_distance_upper)
+    box_assets['total_receiver_speed_lower'] = sum(total_receiver_distance_lower)/len(total_receiver_distance_lower)
+
+    box_assets['change_direction_times_upper'] = upper_change_times
+    box_assets['change_direction_times_lower'] = lower_change_times
+
+    valid_distance_upper = calculate_speed(real_upper_human)
+    valid_distance_lower = calculate_speed(real_lower_human)
+    box_assets['total_moving_distance_upper'] = sum(valid_distance_upper)
+    box_assets['total_moving_distance_lower'] = sum(valid_distance_lower)
+    box_assets['total_moving_speed_upper'] = sum(valid_distance_upper)/len(valid_distance_upper)
+    box_assets['total_moving_speed_lower'] = sum(valid_distance_lower)/len(valid_distance_lower)
+
+    upper_forehand,upper_backhand = count_segments(upper_state_list)
+    lower_forehand,lower_backhand =count_segments(lower_state_list)
+
+    box_assets['upper_forehand_ratio'] = upper_forehand/upper_forehand+upper_backhand
+    box_assets['upper_backhand_ratio'] = upper_backhand/upper_forehand+upper_backhand
+    box_assets['lower_forehand_ratio'] = lower_forehand/upper_forehand+upper_backhand
+    box_assets['lower_backhand_ratio'] = lower_backhand/upper_forehand+upper_backhand
+
+    with open(path, 'w') as f:
+        json.dump(box_assets, f, indent=4)
+
 
 
 def main(csv_file,video_file, output_video_folder, info_json):
@@ -193,13 +253,14 @@ def main(csv_file,video_file, output_video_folder, info_json):
     total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     rally_change_list, rally_change_intervals = process_rally_changes(data)
     hit_time,hit_intervals,upper_hit_time,upper_hit_intervals,lower_hit_time,lower_hit_intervals = get_hit_times(data,rally_change_intervals)
-    ball_speed = calculate_ball_speed(data,upper_hit_time,lower_hit_time)
+    ball_speed,ball_speed_list = calculate_ball_speed(data,upper_hit_time,lower_hit_time)
     precise_landings = precise_landing(data, rally_change_intervals)
-    game_winner = finish_analysis(data,serve_side,precise_landings)
+    game_winner,last_landing = finish_analysis(data,serve_side,precise_landings)
     cross_straight_dict = cross_straight(data, hit_time)
     upper_state_list, lower_state_list = upper_lower_state(data, upper_hit_time, lower_hit_time, upper_hit_intervals, lower_hit_intervals,upper_hand,lower_hand)
     upper_direction_list, lower_direction_list = change_direction(data,upper_state_list,lower_state_list)
-    upper_approach_speed, lower_approach_speed = approached_speed(data,upper_state_list,lower_state_list)
+    upper_approach_speed, lower_approach_speed,total_receiver_distance_upper,total_receiver_distance_lower = approached_speed(data,upper_state_list,lower_state_list)
+    upper_change_times, lower_change_times = 0,0
 
     os.makedirs(output_video_folder, exist_ok=True)
     frame_id = data['frame_id'][0]
@@ -209,6 +270,8 @@ def main(csv_file,video_file, output_video_folder, info_json):
     draw_ball_heatmap(data, precise_landings,output_video_folder)
     draw_human_heatmap(data,upper_hit_time, output_video_folder,'upper')
     draw_human_heatmap(data, lower_hit_time, output_video_folder,'lower')
+    output_json_path = os.path.join(output_video_folder, 'analysis_output.json')
+
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -227,11 +290,11 @@ def main(csv_file,video_file, output_video_folder, info_json):
             if frame_id >= precise_landings[-1]:
                 cv2.putText(frame, '{} win'.format(game_winner), (500, 100),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        draw_approach_speed(frame,frame_id,upper_approach_speed,upper_left_corner)
-        draw_approach_speed(frame, frame_id, lower_approach_speed, lower_left_corner)
+        draw_approach_speed(frame,frame_id,upper_approach_speed[0],upper_left_corner)
+        draw_approach_speed(frame, frame_id, lower_approach_speed[0], lower_left_corner)
         draw_ball_speed(frame, frame_id,ball_speed,middle_left)
-        draw_change_directions(frame, frame_id,upper_direction_list,upper_right_corner)
-        draw_change_directions(frame, frame_id, lower_direction_list, lower_right_corner)
+        upper_change_times = draw_change_directions(frame, frame_id,upper_direction_list,upper_right_corner)
+        lower_change_times = draw_change_directions(frame, frame_id, lower_direction_list, lower_right_corner)
         draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_landings)
         draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time)
         out.write(frame)
@@ -239,7 +302,8 @@ def main(csv_file,video_file, output_video_folder, info_json):
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
         frame_id += 1
-
+    write_json(output_json_path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
+               upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower)
     cap.release()
     out.release()
     cv2.destroyAllWindows()
@@ -247,8 +311,8 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
 if __name__ == "__main__":
 
-    input_json_file = r"output/kh_1/20231011_kh_yt_2_filter.json"
-    input_video_file = r"output/kh_1/20231011_kh_yt_2.mp4"
-    output_video_folder = r"output/kh_1"
-    info_json = r"output/kh_1/info.json"
+    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2\20231011_kh_yt_2_filter.json"
+    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\kh_2\20231011_kh_yt_2.mp4"
+    output_video_folder = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\kh_2"
+    info_json = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2\info_json.json"
     main(input_json_file,input_video_file, output_video_folder,info_json)

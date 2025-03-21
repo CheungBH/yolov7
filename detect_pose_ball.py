@@ -219,7 +219,6 @@ def detect():
         mask_points = box_assets['mask']
         click_type = box_assets['mask_type']
     else:
-
         box_assets = {}
         # if os.path.exists(box_asset_path):
         #     input("The box asset file already exists, do you want to overwrite it? Press Enter to continue, or Ctrl+C to exit.")
