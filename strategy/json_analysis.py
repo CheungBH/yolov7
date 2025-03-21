@@ -88,7 +88,7 @@ def get_hit_times(data,rally_change_intervals):
     return hit_time,hit_intervals,upper_hit_time,upper_hit_intervals,lower_hit_time,lower_hit_intervals
 
 
-def calculate_ball_speed(data,upper_hit,lower_hit):
+def calculate_ball_speed(data,upper_hit,lower_hit, valid_ratio=0.4):
     real_ball_list = data['real_ball']
     hit_speed= defaultdict(list)
     merged_list = sorted(set(upper_hit + lower_hit))
@@ -104,6 +104,9 @@ def calculate_ball_speed(data,upper_hit,lower_hit):
         one_hit = hit_interval[0]
         another_hit = hit_interval[1]
         valid_speed_list = calculate_speed(real_ball_list[one_hit:another_hit])
+        # begin_hit, end_hit = (int(one_hit + valid_ratio * (another_hit - one_hit)),
+        #                       int(one_hit + (1 - valid_ratio) * (another_hit - one_hit)))
+        # valid_speed_list = calculate_speed(real_ball_list[begin_hit:end_hit])
         hit_speed[one_hit] = sum(valid_speed_list)/ len(valid_speed_list) if valid_speed_list!=[] else 0
     return hit_speed
 
@@ -244,8 +247,8 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
 if __name__ == "__main__":
 
-    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2\20231011_kh_yt_2_filter.json"
-    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\kh_2\20231011_kh_yt_2.mp4"
-    output_video_folder = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2"
-    info_json = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2\info_json.json"
+    input_json_file = r"output/kh_1/20231011_kh_yt_2_filter.json"
+    input_video_file = r"output/kh_1/20231011_kh_yt_2.mp4"
+    output_video_folder = r"output/kh_1"
+    info_json = r"output/kh_1/info.json"
     main(input_json_file,input_video_file, output_video_folder,info_json)

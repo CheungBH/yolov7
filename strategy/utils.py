@@ -406,13 +406,16 @@ def draw_approach_speed(frame,frame_id,approach_speed,coordinate=(100, 100)):
             end += 1
         values = [approach_speed[i] for i in range(start, end + 1)]
         average_value = sum(values) / len(values)
-        cv2.putText(frame, 'Approach_speed: {}'.format(round(average_value,2)), coordinate,
+        cv2.putText(frame, 'Approach', coordinate, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(frame, 'speed: {}'.format(round(average_value,2)), (coordinate[0], coordinate[1] + 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
 def draw_ball_speed(frame, frame_id,ball_speed,coordinate=(100, 100)):
     max_k = max((k for k in ball_speed if frame_id >= k), default=None)
     if max_k is not None:
-        cv2.putText(frame, f'ball_speed: {round(ball_speed[max_k],2)}', coordinate,
+        cv2.putText(frame, f'ball_speed:', coordinate,
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(frame, f'{round(ball_speed[max_k],2)}', (coordinate[0], coordinate[1] + 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
 def draw_change_directions(frame, frame_id, direction_list, coordinate=(100, 100)):
@@ -422,7 +425,11 @@ def draw_change_directions(frame, frame_id, direction_list, coordinate=(100, 100
     for i in range(len(direction_list[0:frame_id+1])):
         if direction_list[i] == True and (i == False or direction_list[i - 1] == False):
             change_count += 1
-    cv2.putText(frame, f'change_directions: {change_count}', coordinate,
+    cv2.putText(frame, f'change', coordinate,
+                cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    cv2.putText(frame, f'directions', (coordinate[0], coordinate[1] + 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    cv2.putText(frame, f'count: {change_count}', (coordinate[0], coordinate[1] + 60),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
 
 
@@ -502,6 +509,7 @@ def plot_heatmap(frequency_matrix, title="Heatmap", cmap="viridis",output="heatm
     plt.xlabel("Grid Columns")
     plt.ylabel("Grid Rows")
     plt.savefig(output)
+    plt.close()
 
 def compute_frequency_matrix(M, N, points, m, n):
     # Initialize the frequency matrix with zeros
