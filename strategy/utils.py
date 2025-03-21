@@ -325,22 +325,12 @@ def hit_plus(state,intervals,human_action,hand,key='upper'):
         state[start:end + 1] = [valid_action] * (end - start + 1)
     return state
 
-def count_segments(data):
-    if not data:  # 如果列表为空
-        return 0, 0
-
-    count_0 = 0  # 记录 0 的段数
-    count_1 = 0  # 记录 1 的段数
-
-    previous_value = None  # 用于记录前一个值
-
-    for value in data:
-        if value == 'forehand' and value != previous_value:
-            count_0 += 1
-        elif value == 'backhand' and value != previous_value:
-            count_1 += 1
-        previous_value = value  # 更新前一个值
-    return count_0, count_1
+def count_segments(data, item):
+    cnt = 0
+    for d in data:
+        if d == item:
+            cnt += 1
+    return cnt
 
 def is_in_rectangle(value, rect):
     return rect[0][0] <= value[0] <= rect[1][0] and rect[0][1] <= value[1] <= rect[1][1]

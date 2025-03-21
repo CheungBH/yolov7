@@ -197,7 +197,8 @@ def approached_speed(data,upper_state_list,lower_state_list):
     return upper_approach_speed, lower_approach_speed,total_distance_upper,total_distance_lower
 
 def write_json(path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
-               upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower):
+               upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,
+               upper_hit_time,lower_hit_time):
     box_assets = {}
     upper_court = [[424,560],[1240,1745]]
     lower_court = [[424,1745],[1240,2930]]
@@ -205,7 +206,7 @@ def write_json(path,data,serve_side,game_winner,last_landing,fps,ball_speed_list
     real_upper_human = data['real_upper_human']
     real_lower_human = data['real_lower_human']
 
-    box_assets['rally_cnt'] = max(data['rally_cnt'])
+    box_assets['rally_cnt'] = data['rally_cnt'][-1] - data['rally_cnt'][0]
     box_assets['serve_player'] = serve_side
     box_assets['success_shot'] = True if serve_side == game_winner else False
     if serve_side =='upper' and is_in_rectangle(last_landing,upper_court)  or serve_side =='lower' and is_in_rectangle(last_landing,lower_court):
@@ -233,13 +234,17 @@ def write_json(path,data,serve_side,game_winner,last_landing,fps,ball_speed_list
     box_assets['total_moving_speed_upper'] = sum(valid_distance_upper)/len(valid_distance_upper)
     box_assets['total_moving_speed_lower'] = sum(valid_distance_lower)/len(valid_distance_lower)
 
-    upper_forehand,upper_backhand = count_segments(upper_state_list)
-    lower_forehand,lower_backhand =count_segments(lower_state_list)
+    upper_hit_list = [upper_state_list[t] for t in upper_hit_time]
+    lower_hit_list = [lower_state_list[t] for t in lower_hit_time]
+    upper_forehand = count_segments(upper_hit_list, 'forehand')
+    upper_backhand = count_segments(upper_hit_list, 'backhand')
+    lower_forehand = count_segments(lower_hit_list, 'forehand')
+    lower_backhand = count_segments(lower_hit_list, 'backhand')
 
-    box_assets['upper_forehand_ratio'] = upper_forehand/upper_forehand+upper_backhand
-    box_assets['upper_backhand_ratio'] = upper_backhand/upper_forehand+upper_backhand
-    box_assets['lower_forehand_ratio'] = lower_forehand/upper_forehand+upper_backhand
-    box_assets['lower_backhand_ratio'] = lower_backhand/upper_forehand+upper_backhand
+    box_assets['upper_forehand_ratio'] = upper_forehand/len(upper_hit_list)
+    box_assets['upper_backhand_ratio'] = upper_backhand/len(upper_hit_list)
+    box_assets['lower_forehand_ratio'] = lower_forehand/len(lower_hit_list)
+    box_assets['lower_backhand_ratio'] = lower_backhand/len(lower_hit_list)
 
     with open(path, 'w') as f:
         json.dump(box_assets, f, indent=4)
@@ -303,7 +308,7 @@ def main(csv_file,video_file, output_video_folder, info_json):
             break
         frame_id += 1
     write_json(output_json_path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
-               upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower)
+               upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,upper_hit_time,lower_hit_time)
     cap.release()
     out.release()
     cv2.destroyAllWindows()
@@ -311,8 +316,8 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
 if __name__ == "__main__":
 
-    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2\20231011_kh_yt_2_filter.json"
-    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\kh_2\20231011_kh_yt_2.mp4"
-    output_video_folder = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\kh_2"
-    info_json = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2\info_json.json"
+    input_json_file = "output/kh_1/20231011_kh_yt_2_filter.json"
+    input_video_file = "output/kh_1/20231011_kh_yt_2.mp4"
+    output_video_folder = 'output/kh_1'
+    info_json = "output/kh_1/info.json"
     main(input_json_file,input_video_file, output_video_folder,info_json)
