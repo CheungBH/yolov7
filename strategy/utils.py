@@ -22,7 +22,16 @@ def normalize_keypoints(keypoints, bbox):
         normalized_keypoints.append(y_norm)
     return normalized_keypoints
 
-
+def filter_ball(data):
+    for idx,value in enumerate(data):
+        if idx >= 1:
+            if data[idx] != [-1,-1] and data[idx-1] != [-1,-1]:
+                x1, y1 =data[idx]
+                x2, y2 = data[idx-1]
+                distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+                if distance  >  350:
+                    data[idx] = [-1,-1]
+    return data
 
 def find_closest_point(list1, list2):
     # 计算两点之间的欧几里得距离
@@ -299,12 +308,25 @@ def return_plus(states, box):
             updated_states[i] = 'ready'
     return updated_states
 
-def hit_plus(state,intervals):
+def hit_plus(state,intervals,human_action,hand,key='upper'):
     for start, end in intervals:
-        state[start:end + 1] = ["hit"] * (end - start + 1)
+        filtered_data = [x for x in human_action[start:end + 1] if x not in [-1, 3]]
+        if not filtered_data:
+            valid_action =  "not sure"
+        else:
+            element_counts = Counter(filtered_data)
+            most_common_element, _ = element_counts.most_common(1)[0]
+            if most_common_element == 2:
+                valid_action = "overhead"
+            elif (most_common_element ==  hand and key =='lower') or (most_common_element !=  hand and key =='upper'):
+                valid_action = "backhand"
+            else:
+                valid_action = "forehand"
+        state[start:end + 1] = [valid_action] * (end - start + 1)
     return state
 
-
+def is_in_rectangle(value, rect):
+    return rect[0][0] <= value[0] <= rect[1][0] and rect[0][1] <= value[1] <= rect[1][1]
 
 def calculate_angle(v1, v2):
     """计算两个向量之间的夹角（以度为单位）"""
@@ -406,13 +428,11 @@ def draw_change_directions(frame, frame_id, direction_list, coordinate=(100, 100
 
 def draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_landings):
     ball_location =data['ball']
-    previous_positions = []
     ball_color = (0,255,0)
-    current_position = (int(ball_location[frame_id][0]), int(ball_location[frame_id][1]))
-    previous_positions.append(current_position)
-    if len(previous_positions) > 7:
-        previous_positions.pop(0)
-    for i, position in enumerate(reversed(previous_positions)):
+    filtered = [pos for pos in ball_location[:frame_id] if pos != [-1, -1]]
+    filtered_list = filtered[-7:] if len(filtered) > 7 else filtered
+    prensent_positions = [(int(x), int(y)) for x, y in filtered_list]
+    for i, position in enumerate(reversed(prensent_positions)):
         alpha = 1.0 - i * 0.1
         overlay = frame.copy()
         cv2.circle(overlay, position, 10, ball_color, -1)
@@ -439,13 +459,19 @@ def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper
     upper_color = (
         (255, 0, 0) if upper_state_list[frame_id] == 'approach' else
         (0, 255, 0) if upper_state_list[frame_id] == 'return' else
-        (0, 0, 255) if upper_state_list[frame_id] == 'hit' else
+        (255, 0, 255) if upper_state_list[frame_id] == 'forehand' else
+        (125, 125, 255) if upper_state_list[frame_id] == 'backhand' else
+        (0, 0, 255) if upper_state_list[frame_id] == 'overhead' else
+        (0, 0, 0) if upper_state_list[frame_id] == 'not sure' else
         (0, 255, 255)
     )
     lower_color = (
         (255, 0, 0) if lower_state_list[frame_id] == 'approach' else
         (0, 255, 0) if lower_state_list[frame_id] == 'return' else
-        (0, 0, 255) if lower_state_list[frame_id] == 'hit' else
+        (255, 0, 255) if upper_state_list[frame_id] == 'forehand' else
+        (125, 125, 255) if upper_state_list[frame_id] == 'backhand' else
+        (0, 0, 255) if upper_state_list[frame_id] == 'overhead' else
+        (0, 0, 0) if upper_state_list[frame_id] == 'not sure' else
         (0, 255, 255)
     )
     upper_box = data['upper_human'][frame_id]
@@ -476,6 +502,7 @@ def plot_heatmap(frequency_matrix, title="Heatmap", cmap="viridis",output="heatm
     plt.xlabel("Grid Columns")
     plt.ylabel("Grid Rows")
     plt.savefig(output)
+
 def compute_frequency_matrix(M, N, points, m, n):
     # Initialize the frequency matrix with zeros
     frequency_matrix = [[0 for _ in range(n)] for _ in range(m)]
@@ -493,10 +520,11 @@ def compute_frequency_matrix(M, N, points, m, n):
             if 0 <= row < m and 0 <= col < n:
                 frequency_matrix[row][col] += 1
     return frequency_matrix
+
 def draw_human_heatmap(data,hit_time,output_video_folder,side='upper'):
     output_path = os.path.join(output_video_folder, '{}_human_hit_heatmap.png'.format(side))
     M, N =  3500,1600
-    m, n =  35,16
+    m, n =  7,4
     human_hit_location =[]
     for i in hit_time:
         if side == 'upper':
