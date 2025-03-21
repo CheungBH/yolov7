@@ -120,7 +120,7 @@ class CourtDetector:
     # Find important lines location on frame
     return self.find_lines_location()
 
-  def detect_court_with_inner_points(self, frame, mask_points, **kwargs):
+  def detect_court_with_inner_points(self, frame, mask_points, court_path='strategy/court/court_reference.png', **kwargs):
       mask_points = np.float32(mask_points)
       top_inner_line = ((423, 1110), (1242, 1110))
       bottom_inner_line = ((423, 2386), (1242, 2386))
@@ -132,10 +132,10 @@ class CourtDetector:
       ])
 
       matrix = cv2.getPerspectiveTransform(rect_coords, mask_points)
-      court = cv2.cvtColor(cv2.imread('strategy/court/court_reference.png'), cv2.COLOR_BGR2GRAY)
+      court = cv2.cvtColor(cv2.imread(court_path), cv2.COLOR_BGR2GRAY)
       self.v_height, self.v_width = frame.shape[:2]
       transformed_image = cv2.warpPerspective(court, matrix, (frame.shape[1], frame.shape[0]))
-      p = np.array(CourtReference().get_important_lines(), dtype=np.float32).reshape((-1, 1, 2))
+      p = np.array(CourtReference(court_path=court_path).get_important_lines(), dtype=np.float32).reshape((-1, 1, 2))
       lines = cv2.perspectiveTransform(p,matrix).reshape(-1)
       for i in range(0, len(lines), 4):
           x1, y1, x2, y2 = lines[i],lines[i+1], lines[i+2], lines[i+3]

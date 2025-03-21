@@ -11,10 +11,10 @@ def click_points(event, x, y, flags, param):
 
 
 def main():
-    click_type = "detect"
+    click_type = "inner"
 
-    folder_path = 'assets/source_video'
-    output_folder = "assets/out_video"
+    folder_path = '/Volumes/ASSETS/Tennis/datasets/raw_videos/general/online_source'
+    output_folder = "assets/out_video2"
     court_path = "court_reference.png"
     mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
 
@@ -60,8 +60,9 @@ def main():
             if not ret:
                 break
             if idx == 0:
-                lines = court_detector.begin(type=click_type, frame=frame, mask_points=mask)
-                court_detector.save_detect_tmp(os.path.join(output_folder, file.split(".")[0]))
+                lines = court_detector.begin(type=click_type, frame=frame, mask_points=mask, court_path=court_path)
+                if hasattr(court_detector, "gray_court"):
+                    court_detector.save_detect_tmp(os.path.join(output_folder, file.split(".")[0]))
             else:
                 lines = court_detector.track_court(frame)
                 court_detector.save_track_tmp(os.path.join(output_folder, file.split(".")[0]))
