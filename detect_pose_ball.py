@@ -229,7 +229,7 @@ def detect():
 
     court_detector = CourtDetector(mask_points)
     init_lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points)
-    central_y, central_x = int((init_lines[9] + init_lines[11])//2), int((init_lines[-12] + init_lines[-10])//2)
+    # central_y, central_x = int((init_lines[9] + init_lines[11])//2), int((init_lines[-12] + init_lines[-10])//2)
 
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
         if idx < opt.start_with:
@@ -243,7 +243,6 @@ def detect():
             box_assets[idx] = {}
             classifier_result = highlight_classifier(im0s) # 0: playing, 1: highlight
             box_assets[idx]["classifier"] = str(classifier_result.tolist())
-        highlight_classifier.visualize(im0s, classifier_result)
 
         ball_center = []
         img = torch.from_numpy(img).to(device)
@@ -327,9 +326,12 @@ def detect():
 
                 # Print time (inference + NMS)
                 print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
-
-        lines = court_detector.track_court(frame=im0, mask_points=mask_points)  # detect lines and track lines
+        try:
+            lines = court_detector.track_court(frame=im0, mask_points=mask_points)  # detect lines and track lines
+        except:
+            pass
         current_matrix = court_detector.game_warp_matrix[-1]
+        highlight_classifier.visualize(im0, classifier_result)
 
         if BoxRegProcessor.check_enough():
             ball_locations = BoxRegProcessor.get_queue()
@@ -422,7 +424,7 @@ def detect():
     json_to_csv(box_assets_filter_path, csv_file_path)
     shutil.copy(source, os.path.join(output_folder, os.path.basename(source)))
     shutil.copy(box_asset_path, os.path.join(output_folder, os.path.basename(box_asset_path)))
-    json_analysis(box_assets_filter_path, source, output_folder,0)
+    json_analysis(box_assets_filter_path, source, output_folder, "info.json")
 
 
 
