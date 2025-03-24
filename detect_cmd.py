@@ -14,8 +14,8 @@ def click_points(event, x, y, flags, param):
 def main():
     # 1. 读取文件夹中的所有 .mp4 文件
     # folder_path = r"D:\Ai_tennis\yolov7_main\test_video\Grass"
-    folder_path = "source"
-    output_folder = "outputs_folder"
+    folder_path = r"D:\Tennis\datasets\raw_videos\general\MSc2023\WangTianhan"
+    output_folder = r"D:\tmp\3.24\output\wth"
     mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
     masks = []
 
@@ -55,16 +55,25 @@ def main():
         print(masks)
         cv2.destroyWindow('image')  # 关闭当前图像窗口
 
+
+    mask_file = os.path.join(folder_path, "mask.txt")
+    with open(mask_file, "w") as f:
+        for mask in masks:
+            mask_str = ' '.join([f'{x}'' ' f'{y}' for x, y in mask])
+            f.write(mask_str + "\n")
+
     # 3. 对每个视频运行 detect.py
     total_videos = len(mp4_files)
     for v_idx, (file, mask) in enumerate(zip(mp4_files, masks)):
+        if mask[-2][0] < 200:
+            continue
         mask_str = ' '.join([f'{x}'' ' f'{y}' for x, y in mask])
         video_name = file.split(".")[0]
         # cmd = (f'python detect_analysis.py --source {os.path.join(folder_path, file)} --masks "{mask_str}" '
         #        f' --output_csv_file {"test_csv/" + os.path.join(file.split(".")[0]) + ".csv"} '
         #        f' --project runs/detect --name newcut'
         #        f' --topview_path {"top_view/" + os.path.join(file.split(".")[0]) + "_2.mp4"}')
-        cmd = 'python detect_pose_ball.py --source {} --output_folder {} --masks "{}" --no_show'.format(
+        cmd = 'python detect_pose_ball.py --source {} --output_folder {} --masks "{}"'.format(
             os.path.join(folder_path, file), os.path.join(output_folder, video_name), mask_str)
         print("processing video {}: {}/{}".format(file, v_idx+1, total_videos))
         subprocess.run(cmd, shell=True)
