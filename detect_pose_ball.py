@@ -326,10 +326,12 @@ def detect():
 
                 # Print time (inference + NMS)
                 print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
+        if classifier_result == 1:
+            continue
         try:
             lines = court_detector.track_court(frame=im0, mask_points=mask_points)  # detect lines and track lines
         except:
-            pass
+            break
         current_matrix = court_detector.game_warp_matrix[-1]
         highlight_classifier.visualize(im0, classifier_result)
 
