@@ -256,6 +256,7 @@ def main(csv_file,video_file, output_video_folder, info_json):
     data = read_json_file(csv_file)
     cap, fps, width, height = initialize_video_writer(video_file, output_video_folder)
     total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
     rally_change_list, rally_change_intervals = process_rally_changes(data)
     hit_time,hit_intervals,upper_hit_time,upper_hit_intervals,lower_hit_time,lower_hit_intervals = get_hit_times(data,rally_change_intervals)
     ball_speed,ball_speed_list = calculate_ball_speed(data,upper_hit_time,lower_hit_time)
@@ -276,7 +277,6 @@ def main(csv_file,video_file, output_video_folder, info_json):
     draw_human_heatmap(data,upper_hit_time, output_video_folder,'upper')
     draw_human_heatmap(data, lower_hit_time, output_video_folder,'lower')
     output_json_path = os.path.join(output_video_folder, 'analysis_output.json')
-
 
     while cap.isOpened():
         ret, frame = cap.read()

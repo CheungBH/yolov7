@@ -33,10 +33,11 @@ def filter_ball(data):
                     data[idx] = [-1,-1]
     return data
 
+def euclidean_distance(point1, point2):
+    return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
+
+
 def find_closest_point(list1, list2):
-    # 计算两点之间的欧几里得距离
-    def euclidean_distance(point1, point2):
-        return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
     # 初始化变量以存储最小距离和对应的点
     min_distance = float('inf')

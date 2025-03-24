@@ -73,7 +73,7 @@ class CourtDetector:
       # cv2.imwrite(os.path.join(folder, "gray_detect.jpg"), self.gray)
       # cv2.imwrite(os.path.join(folder, "filtered_detect.jpg"), self.filtered)
 
-  def detect(self, frame, verbose=0, mask_points=[]):
+  def detect(self, frame, verbose=0, mask_points=[], court_path='strategy/court/court_reference.png'):
     """
     Detecting the court in the frame
     """
@@ -525,6 +525,7 @@ class CourtDetector:
                     self.dist += 5
                     # print(self.b)
                     return self.track_court(frame)
+
         # Find transformation from new lines
         i1 = line_intersection(new_lines[0], new_lines[2])
         i2 = line_intersection(new_lines[0], new_lines[3])

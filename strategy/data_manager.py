@@ -1,5 +1,5 @@
 from collections import defaultdict
-from .utils import find_closest_point, normalize_keypoints
+from .utils import find_closest_point, normalize_keypoints, euclidean_distance
 import numpy as np
 import cv2
 
@@ -137,8 +137,11 @@ class DataManagement:
         elif not ball_location:
             self.balls.append([-1, -1])
         else:
-            self.balls.append(ball_location[0])
-        # self.balls.append(ball)
+            ball = ball_location[0]
+            if euclidean_distance(ball, pred_ball_location) > 800:
+                self.balls.append([-1, -1])
+            else:
+                self.balls.append(ball_location[0])
 
     def second_update(self, landing, kps_pred=[]):
         self.curve_status.append(landing)
