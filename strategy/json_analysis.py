@@ -217,23 +217,23 @@ def write_json(path,data,serve_side,game_winner,last_landing,fps,ball_speed_list
     box_assets['Point_duration'] = data['frame_id'][-1]/fps
 
     flattened_list = [item for sublist in ball_speed_list for item in sublist]
-    box_assets['ball_average_speed'] = sum(flattened_list)/len(flattened_list)
-    box_assets['ball_max_speed'] = max(flattened_list)
+    box_assets['ball_average_speed(km/h)'] = (sum(flattened_list)/len(flattened_list))*fps/100*3.6
+    box_assets['ball_max_speed(km/h)'] = max(flattened_list) * fps / 100 * 3.6
 
-    box_assets['total_receiver_distance_upper'] = sum(total_receiver_distance_upper)
-    box_assets['total_receiver_distance_lower'] = sum(total_receiver_distance_lower)
-    box_assets['total_receiver_speed_upper'] = sum(total_receiver_distance_upper)/len(total_receiver_distance_upper)
-    box_assets['total_receiver_speed_lower'] = sum(total_receiver_distance_lower)/len(total_receiver_distance_lower)
+    box_assets['total_receiver_distance_upper(m)'] = sum(total_receiver_distance_upper)/100
+    box_assets['total_receiver_distance_lower(m)'] = sum(total_receiver_distance_lower)/100
+    box_assets['total_receiver_speed_upper(m/s)'] = (sum(total_receiver_distance_upper)/len(total_receiver_distance_upper))*fps/100
+    box_assets['total_receiver_speed_lower(m/s)'] = (sum(total_receiver_distance_lower)/len(total_receiver_distance_lower))*fps/100
 
     box_assets['change_direction_times_upper'] = upper_change_times
     box_assets['change_direction_times_lower'] = lower_change_times
 
     valid_distance_upper = calculate_speed(real_upper_human)
     valid_distance_lower = calculate_speed(real_lower_human)
-    box_assets['total_moving_distance_upper'] = sum(valid_distance_upper)
-    box_assets['total_moving_distance_lower'] = sum(valid_distance_lower)
-    box_assets['total_moving_speed_upper'] = sum(valid_distance_upper)/len(valid_distance_upper)
-    box_assets['total_moving_speed_lower'] = sum(valid_distance_lower)/len(valid_distance_lower)
+    box_assets['total_moving_distance_upper(m)'] = sum(valid_distance_upper) / 100
+    box_assets['total_moving_distance_lower(m)'] = sum(valid_distance_lower) / 100
+    box_assets['total_moving_speed_upper(m/s)'] = (sum(valid_distance_upper)/len(valid_distance_upper)) * fps / 100
+    box_assets['total_moving_speed_lower(m/s)'] = (sum(valid_distance_lower)/len(valid_distance_lower)) * fps / 100
 
     upper_hit_list = [upper_state_list[t] for t in upper_hit_time]
     lower_hit_list = [lower_state_list[t] for t in lower_hit_time]
@@ -256,8 +256,13 @@ def main(csv_file,video_file, output_video_folder, info_json):
     serve_side,upper_hand,lower_hand = read_info_json_file(info_json)
     data = read_json_file(csv_file)
     cap, fps, width, height = initialize_video_writer(video_file, output_video_folder)
-    total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    video_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    recorded_frame = len(data['frame_id'])
+    total_frame = min(video_frame,recorded_frame)
     fps = int(cap.get(cv2.CAP_PROP_FPS))
+    pixel2cm_ratio = fps/100
+
     rally_change_list, rally_change_intervals = process_rally_changes(data)
     hit_time,hit_intervals,upper_hit_time,upper_hit_intervals,lower_hit_time,lower_hit_intervals = get_hit_times(data,rally_change_intervals)
     ball_speed,ball_speed_list = calculate_ball_speed(data,upper_hit_time,lower_hit_time)
@@ -283,6 +288,9 @@ def main(csv_file,video_file, output_video_folder, info_json):
         ret, frame = cap.read()
         if not ret:
             break
+        if frame_id >= total_frame:
+            break
+
         court_location = data['court'][frame_id]
         upper_left_corner, upper_right_corner = (int(court_location[0])-100, int(court_location[1])), (int(court_location[2]), int(court_location[3]))
         middle_left, middle_right = (int(court_location[8])-100, int(court_location[9])), (int(court_location[10]), int(court_location[11]))
@@ -296,9 +304,9 @@ def main(csv_file,video_file, output_video_folder, info_json):
             if frame_id >= precise_landings[-1]:
                 cv2.putText(frame, '{} win'.format(game_winner), (500, 100),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        draw_approach_speed(frame,frame_id,upper_approach_speed[0],upper_left_corner)
-        draw_approach_speed(frame, frame_id, lower_approach_speed[0], lower_left_corner)
-        draw_ball_speed(frame, frame_id,ball_speed,middle_left)
+        draw_approach_speed(frame,frame_id,upper_approach_speed[0],upper_left_corner, pixel2cm_ratio)
+        draw_approach_speed(frame, frame_id, lower_approach_speed[0], lower_left_corner, pixel2cm_ratio)
+        draw_ball_speed(frame, frame_id,ball_speed,middle_left, pixel2cm_ratio*3.6)
         upper_change_times = draw_change_directions(frame, frame_id,upper_direction_list,upper_right_corner)
         lower_change_times = draw_change_directions(frame, frame_id, lower_direction_list, lower_right_corner)
         draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_landings)
@@ -317,8 +325,8 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
 if __name__ == "__main__":
 
-    input_json_file = "output/kh_1/20231011_kh_yt_2_filter.json"
-    input_video_file = "output/kh_1/20231011_kh_yt_2.mp4"
-    output_video_folder = 'output/kh_1'
-    info_json = "output/kh_1/info.json"
+    input_json_file = r"D:\tmp\3.24\candidates_output_0326\tennis_slice1\tennis_slice1_filter.json"
+    input_video_file = r'D:\tmp\3.24\candidates_output_0326\tennis_slice1\tennis_slice1.mp4'
+    output_video_folder = 'output'
+    info_json = r"D:\tmp\3.21\kh_1\info.json"
     main(input_json_file,input_video_file, output_video_folder,info_json)

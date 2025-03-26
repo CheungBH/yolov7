@@ -14,53 +14,62 @@ def click_points(event, x, y, flags, param):
 def main():
     # 1. 读取文件夹中的所有 .mp4 文件
     # folder_path = r"D:\Ai_tennis\yolov7_main\test_video\Grass"
-    folder_path = r"D:\Tennis\datasets\raw_videos\general\MSc2023\WangTianhan"
-    output_folder = r"D:\tmp\3.24\output\wth"
+    folder_path = r"D:\tmp\3.24\candidates"
+    output_folder = r"D:\tmp\3.24\candidates_output_0327"
+    use_saved_box = True
+
     mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
     masks = []
 
-    for file in mp4_files:
-        video_path = os.path.join(folder_path, file)
-        print(f"video path: {video_path}")
-
-        # 2. 读取每个 .mp4 文件的第一帧图像
-        cap = cv2.VideoCapture(video_path)
-        #设置要读取的帧号，例如第10帧
-        frame_number = 0
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-        # 读取指定帧
-        ret, frame = cap.read()
-        cap.release()
-
-        if not ret:
-            print(f"Failed to read {file}")
-            continue
-
-        points = []
-        # param = [points, frame.copy()]  # 将点和帧传递给回调函数
-
-        h, w = frame.shape[:2]
-        print(f"width: {w}, height: {h}")
-        frame = cv2.resize(frame, (w//resize_ratio, h//resize_ratio))
-        param = [points, frame.copy()]
-        cv2.imshow('image', frame)
-        cv2.setMouseCallback('image', click_points, param)
-
-        # 等待用户点击四个点
-        while len(points) < 4:
-            cv2.waitKey(1)
-
-        # 保存点击的点
-        masks.append(points)
-        print(masks)
-        cv2.destroyWindow('image')  # 关闭当前图像窗口
-
-
     mask_file = os.path.join(folder_path, "mask.txt")
-    with open(mask_file, "w") as f:
-        for mask in masks:
-            mask_str = ' '.join([f'{x}'' ' f'{y}' for x, y in mask])
-            f.write(mask_str + "\n")
+    if os.path.exists(mask_file):
+        with open(mask_file, "r") as f:
+            for line in f:
+                mask = [int(x) for x in line.strip().split()]
+                masks.append([(mask[i], mask[i+1]) for i in range(0, len(mask), 2)])
+
+    else:
+        for file in mp4_files:
+            video_path = os.path.join(folder_path, file)
+            print(f"video path: {video_path}")
+
+            cap = cv2.VideoCapture(video_path)
+            #设置要读取的帧号，例如第10帧
+            frame_number = 0
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+            # 读取指定帧
+            ret, frame = cap.read()
+            cap.release()
+
+            if not ret:
+                print(f"Failed to read {file}")
+                continue
+
+            points = []
+            # param = [points, frame.copy()]  # 将点和帧传递给回调函数
+
+            h, w = frame.shape[:2]
+            print(f"width: {w}, height: {h}")
+            frame = cv2.resize(frame, (w//resize_ratio, h//resize_ratio))
+            param = [points, frame.copy()]
+            cv2.imshow('image', frame)
+            cv2.setMouseCallback('image', click_points, param)
+
+            # 等待用户点击四个点
+            while len(points) < 4:
+                cv2.waitKey(1)
+
+            # 保存点击的点
+            masks.append(points)
+            print(masks)
+            cv2.destroyWindow('image')  # 关闭当前图像窗口
+
+
+        mask_file = os.path.join(folder_path, "mask.txt")
+        with open(mask_file, "w") as f:
+            for mask in masks:
+                mask_str = ' '.join([f'{x}'' ' f'{y}' for x, y in mask])
+                f.write(mask_str + "\n")
 
     # 3. 对每个视频运行 detect.py
     total_videos = len(mp4_files)
@@ -75,6 +84,8 @@ def main():
         #        f' --topview_path {"top_view/" + os.path.join(file.split(".")[0]) + "_2.mp4"}')
         cmd = 'python detect_pose_ball.py --source {} --output_folder {} --masks "{}"'.format(
             os.path.join(folder_path, file), os.path.join(output_folder, video_name), mask_str)
+        if use_saved_box:
+            cmd += ' --use_saved_box'
         print("processing video {}: {}/{}".format(file, v_idx+1, total_videos))
         subprocess.run(cmd, shell=True)
 

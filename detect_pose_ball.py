@@ -223,10 +223,10 @@ def detect():
         # if os.path.exists(box_asset_path):
         #     input("The box asset file already exists, do you want to overwrite it? Press Enter to continue, or Ctrl+C to exit.")
         box_f = open(box_asset_path, 'w')
-        box_f_filter = open(box_assets_filter_path,'w')
         box_assets['mask'] = mask_points
         box_assets['mask_type'] = click_type
 
+    box_f_filter = open(box_assets_filter_path,'w')
     court_detector = CourtDetector(mask_points)
     init_lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points)
     # central_y, central_x = int((init_lines[9] + init_lines[11])//2), int((init_lines[-12] + init_lines[-10])//2)
@@ -419,10 +419,11 @@ def detect():
 
     if not use_saved_box:
         json.dump(box_assets, box_f,indent =4)
-        json.dump(strategy_assets, box_f_filter, indent=4)
         box_f.close()
-        box_f_filter.close()
-    csv_file_path = os.path.join(output_folder, "result.csv")
+    json.dump(strategy_assets, box_f_filter, indent=4)
+    box_f_filter.close()
+
+    csv_file_path = os.path.join(output_folder, os.path.basename(source).split(".")[0] + ".csv")
     json_to_csv(box_assets_filter_path, csv_file_path)
     shutil.copy(source, os.path.join(output_folder, os.path.basename(source)))
     shutil.copy(box_asset_path, os.path.join(output_folder, os.path.basename(box_asset_path)))

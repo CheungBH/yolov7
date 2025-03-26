@@ -422,7 +422,7 @@ def calculate_approach_speed(states, coordinates,total_distance):
             speeds_dict[i] = round(distance,2)/1
     return speeds_dict,total_distance
 
-def draw_approach_speed(frame,frame_id,approach_speed,coordinate=(100, 100)):
+def draw_approach_speed(frame,frame_id,approach_speed,coordinate=(100, 100), ratio=1):
     if frame_id in approach_speed:
         start = end = frame_id
         while start - 1 in approach_speed:
@@ -430,17 +430,17 @@ def draw_approach_speed(frame,frame_id,approach_speed,coordinate=(100, 100)):
         while end + 1 in approach_speed:
             end += 1
         values = [approach_speed[i] for i in range(start, end + 1)]
-        average_value = sum(values) / len(values)
+        average_value = (sum(values) / len(values)) * ratio
         cv2.putText(frame, 'Approach', coordinate, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        cv2.putText(frame, 'speed: {}'.format(round(average_value,2)), (coordinate[0], coordinate[1] + 30),
+        cv2.putText(frame, 'speed: {}m/s'.format(round(average_value,2)), (coordinate[0], coordinate[1] + 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-def draw_ball_speed(frame, frame_id,ball_speed,coordinate=(100, 100)):
+def draw_ball_speed(frame, frame_id,ball_speed,coordinate=(100, 100), ratio=1):
     max_k = max((k for k in ball_speed if frame_id >= k), default=None)
     if max_k is not None:
         cv2.putText(frame, f'ball_speed:', coordinate,
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        cv2.putText(frame, f'{round(ball_speed[max_k],2)}', (coordinate[0], coordinate[1] + 30),
+        cv2.putText(frame, f'{round(ball_speed[max_k]*ratio,2)} km/h', (coordinate[0], coordinate[1] + 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
 def draw_change_directions(frame, frame_id, direction_list, coordinate=(100, 100)):
