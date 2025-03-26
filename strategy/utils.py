@@ -355,7 +355,7 @@ def calculate_change_direction(states, coordinates,limit_area=0):
             if start is None:
                 start = i
         else:
-            if start is not None:
+            if start is not None and i-1 != start :
                 intervals.append([start, i - 1])
                 start = None
     if start is not None:  # 处理最后一个区间
