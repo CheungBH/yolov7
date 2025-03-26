@@ -309,7 +309,8 @@ def return_plus(states, box):
             updated_states[i] = 'ready'
     return updated_states
 
-def hit_plus(state,intervals,human_action,hand,key='upper'):
+def hit_plus(state,intervals,human_action,hand,key='upper',ball_states=[]):
+
     for start, end in intervals:
         filtered_data = [x for x in human_action[start:end + 1] if x not in [-1, 3]]
         if not filtered_data:
@@ -318,7 +319,12 @@ def hit_plus(state,intervals,human_action,hand,key='upper'):
             element_counts = Counter(filtered_data)
             most_common_element, _ = element_counts.most_common(1)[0]
             if most_common_element == 2:
-                valid_action = "overhead"
+                serve_count =  Counter(ball_states[start:end + 1])
+                most_curve_element, _ = serve_count.most_common(1)[0]
+                if most_curve_element == 'serve':
+                    valid_action = "serve"
+                else:
+                    valid_action = "overhead"
             elif (most_common_element ==  hand and key =='lower') or (most_common_element !=  hand and key =='upper'):
                 valid_action = "backhand"
             else:
