@@ -503,7 +503,7 @@ def draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_land
         cv2.arrowedLine(frame, end_point, start_point, arrow_color, 3)
 
 
-def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time,hit_time):
+def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time,hit_time, fps):
     colors_dict = {
         "none": (0, 0, 0),
         "approach": (255, 0, 0),
@@ -552,14 +552,14 @@ def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper
                     cv2.FONT_HERSHEY_SIMPLEX, 1, upper_color, 2)
         idx = hit_time.index(frame_id)
         if idx != len(hit_time)-1:
-            cv2.putText(frame, 'Hit intervals: {}'.format(hit_time[idx+1]-hit_time[idx]), (int(upper_box[2]), int(upper_box[3])+30),
+            cv2.putText(frame, 'Hit intervals: {} s'.format((hit_time[idx+1]-hit_time[idx])/fps), (int(upper_box[2]), int(upper_box[3])+30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, upper_color, 2)
     elif frame_id in lower_hit_time:
         cv2.putText(frame, 'Hitting', (int(lower_box[2]), int(lower_box[3])),
                     cv2.FONT_HERSHEY_SIMPLEX, 1,lower_color, 2)
         idx = hit_time.index(frame_id)
         if idx != len(hit_time)-1:
-            cv2.putText(frame, 'Hit intervals: {}'.format(hit_time[idx+1]-hit_time[idx]), (int(lower_box[2]), int(lower_box[3])+30),
+            cv2.putText(frame, 'Hit intervals: {}'.format((hit_time[idx+1]-hit_time[idx])/fps), (int(lower_box[2]), int(lower_box[3])+30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, lower_color, 2)
 
 
