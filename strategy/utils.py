@@ -144,6 +144,13 @@ def calculate_speed(position):
             valid_distance.append(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2))
     return valid_distance
 
+def calculate_distance(position1,position2):
+    x1, y1 = position1[0],position1[1]
+    x2, y2 = position2[0],position2[1]
+    valid_distance= math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+    valid_x = abs(x2-x1)
+    return valid_distance,valid_x
+
 def find_first_landing_with_window(lst, window_size,begin):
     max_count = 0  # 记录滑动窗口中 'landing' 出现的最大次数
     max_start_idx = -1  # 记录最大次数对应的窗口起始索引
@@ -488,7 +495,7 @@ def draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_land
         cv2.arrowedLine(frame, end_point, start_point, arrow_color, 3)
 
 
-def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time):
+def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time,hit_time):
     upper_color = (
         (255, 0, 0) if upper_state_list[frame_id] == 'approach' else
         (0, 255, 0) if upper_state_list[frame_id] == 'return' else
@@ -520,9 +527,17 @@ def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper
     if frame_id in upper_hit_time:
         cv2.putText(frame, 'Hitting', (int(upper_box[2]), int(upper_box[3])),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, upper_color, 2)
+        idx = hit_time.index(frame_id)
+        if idx != len(hit_time)-1:
+            cv2.putText(frame, 'Hit intervals: {}'.format(hit_time[idx+1]-hit_time[idx]), (int(upper_box[2]), int(upper_box[3])+30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, upper_color, 2)
     elif frame_id in lower_hit_time:
         cv2.putText(frame, 'Hitting', (int(lower_box[2]), int(lower_box[3])),
                     cv2.FONT_HERSHEY_SIMPLEX, 1,lower_color, 2)
+        idx = hit_time.index(frame_id)
+        if idx != len(hit_time)-1:
+            cv2.putText(frame, 'Hit intervals: {}'.format(hit_time[idx+1]-hit_time[idx]), (int(lower_box[2]), int(lower_box[3])+30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, lower_color, 2)
 
 
 def plot_heatmap(frequency_matrix, title="Heatmap", cmap="viridis",output="heatmap.png"):

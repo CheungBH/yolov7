@@ -4,15 +4,10 @@ import cv2
 from collections import defaultdict
 
 from numpy.array_api import result_type
-
 try:
-    from .utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,filter_ball,is_in_rectangle,count_segments,
-                       calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed,calculate_ratio)
-    from .utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info,draw_ball_heatmap,draw_human_heatmap
+    from .utils import *
 except:
-    from utils import (transform_dict_extended,find_change_points,group_change_points,find_and_merge_non_three_intervals,calculate_change_direction,filter_ball,is_in_rectangle,count_segments,
-                       calculate_speed,find_first_landing_with_window,extract_valid_elements,generate_lists,return_plus,hit_plus,calculate_approach_speed,calculate_ratio)
-    from utils import draw_approach_speed,draw_ball_speed,draw_change_directions,draw_ball_boxes_arrows,draw_state_info,draw_ball_heatmap,draw_human_heatmap
+    from utils import *
 
 def read_json_file(json_file):
     with open(json_file, 'r') as f:
@@ -197,9 +192,42 @@ def approached_speed(data,upper_state_list,lower_state_list):
     lower_approach_speed = calculate_approach_speed(lower_state_list,lower_real_box,total_distance_lower)
     return upper_approach_speed, lower_approach_speed,total_distance_upper,total_distance_lower
 
+def easy_diff_shot(data,precise_landings):
+    ball_location = data ['real_ball']
+    upper_real_box = data['real_upper_human']
+    lower_real_box = data['real_lower_human']
+    shot_degree={}
+    thre = 400
+    middle_line = 1745
+
+    for landing in precise_landings:
+        if ball_location[landing] == [-1,-1]:
+            i = landing -1
+            while i >= 0 and ball_location[i] == [-1,-1]:
+                i-=1
+            if i >=0:
+                ball_valid = ball_location[i]
+            else:
+                ball_valid = [500,500]
+        else:
+            ball_valid = ball_location[landing]
+        # ball_valid = ball_location[landing] if ball_location[landing] != [-1,-1] else ball_location[landing-1]
+        upper_valid = upper_real_box[landing]
+        lower_valid = lower_real_box[landing]
+
+        if ball_valid[1] < middle_line:
+            distance,x = calculate_distance(upper_valid,ball_valid)
+        else:
+            distance,x = calculate_distance(lower_valid,ball_valid)
+        if x > thre:
+            shot_degree[landing] = 'diffcult'
+        else:
+            shot_degree[landing] = 'easy'
+    return shot_degree
+
 def write_json(path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
                upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,
-               upper_hit_time,lower_hit_time):
+               upper_hit_time,lower_hit_time,shot_degree,precise_landings):
     box_assets = {}
     upper_court = [[424,560],[1240,1745]]
     lower_court = [[424,1745],[1240,2930]]
@@ -247,12 +275,15 @@ def write_json(path,data,serve_side,game_winner,last_landing,fps,ball_speed_list
     box_assets['lower_forehand_ratio'] = lower_forehand/len(lower_hit_list)
     box_assets['lower_backhand_ratio'] = lower_backhand/len(lower_hit_list)
 
+    box_assets['shot_degree'] = shot_degree[precise_landings[-1]] if precise_landings[-1] in shot_degree else 'not sure'
+
     with open(path, 'w') as f:
         json.dump(box_assets, f, indent=4)
 
 
 
 def main(csv_file,video_file, output_video_folder, info_json):
+    os.makedirs(output_video_folder,exist_ok=True)
     serve_side,upper_hand,lower_hand = read_info_json_file(info_json)
     data = read_json_file(csv_file)
     cap, fps, width, height = initialize_video_writer(video_file, output_video_folder)
@@ -273,6 +304,7 @@ def main(csv_file,video_file, output_video_folder, info_json):
     upper_direction_list, lower_direction_list = change_direction(data,upper_state_list,lower_state_list)
     upper_approach_speed, lower_approach_speed,total_receiver_distance_upper,total_receiver_distance_lower = approached_speed(data,upper_state_list,lower_state_list)
     upper_change_times, lower_change_times = 0,0
+    shot_degree = easy_diff_shot(data,precise_landings)
 
     os.makedirs(output_video_folder, exist_ok=True)
     frame_id = data['frame_id'][0]
@@ -310,7 +342,7 @@ def main(csv_file,video_file, output_video_folder, info_json):
         upper_change_times = draw_change_directions(frame, frame_id,upper_direction_list,upper_right_corner)
         lower_change_times = draw_change_directions(frame, frame_id, lower_direction_list, lower_right_corner)
         draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_landings)
-        draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time)
+        draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time,hit_time)
         out.write(frame)
         cv2.imshow('Video', frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -325,8 +357,12 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
 if __name__ == "__main__":
 
-    input_json_file = r"D:\tmp\3.24\candidates_output_0326\tennis_slice1\tennis_slice1_filter.json"
-    input_video_file = r'D:\tmp\3.24\candidates_output_0326\tennis_slice1\tennis_slice1.mp4'
-    output_video_folder = 'output'
-    info_json = r"D:\tmp\3.21\kh_1\info.json"
+    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2\20231011_kh_yt_2_filter.json"
+    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\kh_2\20231011_kh_yt_2.mp4"
+    output_video_folder = 'output/kh_1'
+    info_json = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2\info_json.json"
+    # input_json_file = "output/kh_1/20231011_kh_yt_2_filter.json"
+    # input_video_file = "output/kh_1/20231011_kh_yt_2.mp4"
+    # output_video_folder = 'output/kh_1'
+    # info_json = "output/kh_1/info.json"
     main(input_json_file,input_video_file, output_video_folder,info_json)
