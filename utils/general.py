@@ -29,6 +29,97 @@ pd.options.display.max_columns = 10
 cv2.setNumThreads(0)  # prevent OpenCV from multithreading (incompatible with PyTorch DataLoader)
 os.environ['NUMEXPR_MAX_THREADS'] = str(min(os.cpu_count(), 8))  # NumExpr max threads
 
+def merge_image(image_paths, output_path):
+    # List to hold the images
+    images = []
+
+    for image_path in image_paths:
+        img = cv2.imread(image_path)
+        if img is None:
+            print(f"Error loading image: {image_path}")
+            continue
+        images.append(img)
+
+    # Check if there are any valid images
+    if not images:
+        print("No valid images to merge.")
+        return
+
+    # Merge images horizontally
+    merged_image = np.hstack(images)
+
+    # Save the merged image
+    cv2.imwrite(output_path, merged_image)
+    print(f"Merged image saved as: {output_path}")
+
+
+def resize_frame(frame, target_height):
+    """
+    Resizes a frame to match the target height while maintaining the aspect ratio.
+    """
+    height, width, _ = frame.shape
+    aspect_ratio = width / height
+    new_width = int(target_height * aspect_ratio)
+    return cv2.resize(frame, (new_width, target_height))
+
+def merge_video(video1_path, video2_path, output_path="merged_video.mp4"):
+    """
+    Merges two videos horizontally. The second video is resized to match the height of the first.
+    """
+    cap1 = cv2.VideoCapture(video1_path)
+    cap2 = cv2.VideoCapture(video2_path)
+
+    if not cap1.isOpened() or not cap2.isOpened():
+        print("Error: Could not open one or both video files.")
+        return
+
+    # Get properties from the first video
+    fps = int(cap1.get(cv2.CAP_PROP_FPS))
+    width1 = int(cap1.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height1 = int(cap1.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    # Get properties from the second video
+    width2 = int(cap2.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height2 = int(cap2.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    # Resize the second video to match the first video's height while maintaining aspect ratio
+    aspect_ratio2 = width2 / height2
+    new_width2 = int(height1 * aspect_ratio2)
+
+    # Define the codec and create a VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Use 'XVID' or 'MJPG' for AVI, 'mp4v' for MP4
+    output_width = width1 + new_width2
+    out = cv2.VideoWriter(output_path, fourcc, fps, (output_width, height1))
+
+    while True:
+        ret1, frame1 = cap1.read()
+        ret2, frame2 = cap2.read()
+
+        if not ret1 or not ret2:
+            break  # Stop if either video ends
+
+        # Resize second frame to match height of first frame
+        frame2_resized = resize_frame(frame2, height1)
+
+        # Concatenate frames horizontally
+        merged_frame = np.hstack((frame1, frame2_resized))
+
+        # Write frame to output video
+        out.write(merged_frame)
+
+        # Display the merged frame (optional)
+        cv2.imshow("Merged Video", merged_frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    # Release everything
+    cap1.release()
+    cap2.release()
+    out.release()
+    cv2.destroyAllWindows()
+
+    print(f"Merged video saved as {output_path}")
+
 
 def set_logging(rank=-1):
     logging.basicConfig(

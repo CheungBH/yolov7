@@ -512,7 +512,10 @@ def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper
         "serve": (0, 255, 255),
         'forehand': (255, 255, 0),
         "backhand": (255, 0, 255),
-        "ready": (127, 127, 127)
+        "ready": (127, 127, 127),
+        "volley": (180, 65, 231),
+        "dropshot": (33, 124, 77),
+        "not sure": (145, 225, 24)
     }
     # upper_color = (
     #     (255, 0, 0) if upper_state_list[frame_id] == 'approach' else

@@ -1,6 +1,8 @@
 import argparse
 import time
 import os
+from heapq import merge
+
 from scripts.json2csv import json_to_csv
 import json
 from strategy.json_analysis import main as json_analysis
@@ -19,7 +21,7 @@ from collections import deque
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
-    scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
+    scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path, merge_image, merge_video
 from utils.pose.general import save_one_box, non_max_suppression as pose_non_max_suppression, scale_coords as pose_scale_coords
 from utils.plots import plot_one_box
 from utils.pose.plots import colors as pose_colors, plot_skeleton_kpts, plot_one_box as pose_plot_one_box
@@ -418,17 +420,30 @@ def detect():
             if not opt.no_show:
                 cv2.waitKey(opt.wait_key)
 
-    if not use_saved_box:
-        json.dump(box_assets, box_f,indent =4)
-        box_f.close()
-    json.dump(strategy_assets, box_f_filter, indent=4)
-    box_f_filter.close()
+    output_writer.release()
+    topview_writer.release()
+    if output_folder:
+        if not use_saved_box:
+            json.dump(box_assets, box_f,indent =4)
+            box_f.close()
+        json.dump(strategy_assets, box_f_filter, indent=4)
+        box_f_filter.close()
 
-    csv_file_path = os.path.join(output_folder, os.path.basename(source).split(".")[0] + ".csv")
-    json_to_csv(box_assets_filter_path, csv_file_path)
-    shutil.copy(source, os.path.join(output_folder, os.path.basename(source)))
-    shutil.copy(box_asset_path, os.path.join(output_folder, os.path.basename(box_asset_path)))
-    json_analysis(box_assets_filter_path, source, output_folder, "info.json")
+        csv_file_path = os.path.join(output_folder, os.path.basename(source).split(".")[0] + ".csv")
+        json_to_csv(box_assets_filter_path, csv_file_path)
+        shutil.copy(source, os.path.join(output_folder, os.path.basename(source)))
+        shutil.copy(box_asset_path, os.path.join(output_folder, os.path.basename(box_asset_path)))
+        json_analysis(box_assets_filter_path, source, output_folder, "info.json")
+        shutil.copy("info.json", os.path.join(output_folder, "info.json"))
+
+        merge_video(output_video, topview_video, os.path.join(output_folder, "merged_detect.mp4"))
+        merge_video(os.path.join(output_folder, 'analysis_output.mp4'), topview_video,
+                    os.path.join(output_folder, "merged_analysis.mp4"))
+        merge_image([os.path.join(output_folder, "ball_heatmap.png"),
+                     os.path.join(output_folder, "lower_human_hit_heatmap.png"),
+                     os.path.join(output_folder, "upper_human_hit_heatmap.png")],
+                    os.path.join(output_folder, "heatmap.png"))
+
 
 
 
