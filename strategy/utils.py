@@ -504,28 +504,40 @@ def draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_land
 
 
 def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time,hit_time):
-    upper_color = (
-        (255, 0, 0) if upper_state_list[frame_id] == 'approach' else
-        (0, 255, 0) if upper_state_list[frame_id] == 'return' else
-        (255, 0, 255) if upper_state_list[frame_id] == 'forehand' else
-        (125, 125, 255) if upper_state_list[frame_id] == 'backhand' else
-        (0, 0, 255) if upper_state_list[frame_id] == 'overhead' else
-        (0, 0, 0) if upper_state_list[frame_id] == 'not sure' else
-        (0, 255, 255)
-    )
-    lower_color = (
-        (255, 0, 0) if lower_state_list[frame_id] == 'approach' else
-        (0, 255, 0) if lower_state_list[frame_id] == 'return' else
-        (255, 0, 255) if upper_state_list[frame_id] == 'forehand' else
-        (125, 125, 255) if upper_state_list[frame_id] == 'backhand' else
-        (0, 0, 255) if upper_state_list[frame_id] == 'overhead' else
-        (0, 0, 0) if upper_state_list[frame_id] == 'not sure' else
-        (0, 255, 255)
-    )
+    colors_dict = {
+        "none": (0, 0, 0),
+        "approach": (255, 0, 0),
+        "return": (0, 255, 0),
+        "overhead": (0, 0, 255),
+        "serve": (0, 255, 255),
+        'forehand': (255, 255, 0),
+        "backhand": (255, 0, 255),
+        "ready": (127, 127, 127)
+    }
+    # upper_color = (
+    #     (255, 0, 0) if upper_state_list[frame_id] == 'approach' else
+    #     (0, 255, 0) if upper_state_list[frame_id] == 'return' else
+    #     (255, 0, 255) if upper_state_list[frame_id] == 'forehand' else
+    #     (125, 125, 255) if upper_state_list[frame_id] == 'backhand' else
+    #     (0, 0, 255) if upper_state_list[frame_id] == 'overhead' else
+    #     (0, 0, 0) if upper_state_list[frame_id] == 'not sure' else
+    #     (0, 255, 255)
+    # )
+    # lower_color = (
+    #     (255, 0, 0) if lower_state_list[frame_id] == 'approach' else
+    #     (0, 255, 0) if lower_state_list[frame_id] == 'return' else
+    #     (255, 0, 255) if upper_state_list[frame_id] == 'forehand' else
+    #     (125, 125, 255) if upper_state_list[frame_id] == 'backhand' else
+    #     (0, 0, 255) if upper_state_list[frame_id] == 'overhead' else
+    #     (0, 0, 0) if upper_state_list[frame_id] == 'not sure' else
+    #     (0, 255, 255)
+    # )
     upper_box = data['upper_human'][frame_id]
     lower_box = data['lower_human'][frame_id]
     upper_state = upper_state_list[frame_id]
     lower_state = lower_state_list[frame_id]
+    upper_color = colors_dict[upper_state]
+    lower_color = colors_dict[lower_state]
     cv2.rectangle(frame, (int(upper_box[0]), int(upper_box[1])), (int(upper_box[2]), int(upper_box[3])), upper_color, 2)
     cv2.rectangle(frame, (int(lower_box[0]), int(lower_box[1])), (int(lower_box[2]), int(lower_box[3])), lower_color, 2)
     cv2.putText(frame, f'{upper_state}', (int(upper_box[0]), int(upper_box[1])),

@@ -359,10 +359,10 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
 if __name__ == "__main__":
 
-    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2\20231011_kh_yt_2_filter.json"
-    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\kh_2\20231011_kh_yt_2.mp4"
-    output_video_folder = 'output/kh_1'
-    info_json = r"C:\Users\Public\zcj\yolov7\yolov7main\output\kh_2\info_json.json"
+    input_json_file = r"D:\tmp\3.27\candidates_output\TOP_100_SHOTS_RALLIES_2022_ATP_SEASON_86\TOP_100_SHOTS_RALLIES_2022_ATP_SEASON_86_filter.json"
+    input_video_file = r"D:\tmp\3.27\candidates_output\TOP_100_SHOTS_RALLIES_2022_ATP_SEASON_86\TOP_100_SHOTS_RALLIES_2022_ATP_SEASON_86.mp4"
+    output_video_folder = 'output/86'
+    info_json = r"info.json"
     # input_json_file = "output/kh_1/20231011_kh_yt_2_filter.json"
     # input_video_file = "output/kh_1/20231011_kh_yt_2.mp4"
     # output_video_folder = 'output/kh_1'
