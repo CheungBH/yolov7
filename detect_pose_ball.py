@@ -90,24 +90,7 @@ def detect():
         mask_points = [(int(mask_pre[0]), int(mask_pre[1])), (int(mask_pre[2]), int(mask_pre[3])),
                        (int(mask_pre[4]), int(mask_pre[5])), (int(mask_pre[6]), int(mask_pre[7]))]
     else:
-        mask_points = [
-        [
-            477,
-            324
-        ],
-        [
-            961,
-            325
-        ],
-        [
-            1052,
-            518
-        ],
-        [
-            394,
-            512
-        ]
-    ],
+        mask_points = []
 
 
     classifier_path = "weights/latest_assets/mobilenet/best_acc.pth"
