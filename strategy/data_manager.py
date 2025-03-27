@@ -141,11 +141,11 @@ class DataManagement:
         elif not ball_location:
             self.balls.append([-1, -1])
         else:
-            ball = ball_location[0]
-            if euclidean_distance(ball, pred_ball_location) > 800:
-                self.balls.append([-1, -1])
-            else:
-                self.balls.append(ball_location[0])
+            # ball = ball_location[0]
+            # if euclidean_distance(ball, pred_ball_location) > 800:
+            #     self.balls.append([-1, -1])
+            # else:
+            self.balls.append(ball_location[0])
 
     def second_update(self, landing, kps_pred=[]):
         self.curve_status.append(landing)
