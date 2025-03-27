@@ -319,7 +319,7 @@ def return_plus(states, box):
 def hit_plus(state,intervals,human_action,human_kps,hand,key='upper',ball_states=[]):
 
     for start, end in intervals:
-        overhead_count =  human_action[start:end + 1].count(3)
+        overhead_count =  human_action[start:end + 1].count(2)
         if overhead_count > 0.3*(end-start+1):
             serve_count = Counter(ball_states[start:end + 1])
             most_curve_element, _ = serve_count.most_common(1)[0]

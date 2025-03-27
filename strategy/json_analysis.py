@@ -351,7 +351,7 @@ def main(csv_file,video_file, output_video_folder, info_json):
             break
         frame_id += 1
     write_json(output_json_path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
-               upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,upper_hit_time,lower_hit_time)
+               upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,upper_hit_time,lower_hit_time, shot_degree, precise_landings)
     cap.release()
     out.release()
     cv2.destroyAllWindows()
