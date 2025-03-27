@@ -328,8 +328,8 @@ def hit_plus(state,intervals,human_action,human_kps,hand,key='upper',ball_states
             else:
                 valid_action = "overhead"
         else:
-            if set(ball_states) and set(human_action[start:end + 1]):
-                filtered_data = [x for x in human_action[start:end + 1] if x not in [-1, 3]]
+            if set(ball_states) and set(human_kps[start:end + 1]):
+                filtered_data = [x for x in human_kps[start:end + 1] if x not in [-1, 3]]
                 if not filtered_data:
                     valid_action = "not sure"
                 else:
