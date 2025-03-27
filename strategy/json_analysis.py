@@ -166,13 +166,15 @@ def upper_lower_state(data, upper_hit, lower_hit, upper_hit_intervals, lower_hit
     upper_box = data["upper_human"]
     lower_box = data["lower_human"]
     ball_states = data['curve_status']
-    upper_action = data['upper_human_kps_pred']
-    lower_action = data['lower_human_kps_pred']
+    upper_action = data['upper_actions']
+    lower_action = data['lower_actions']
+    upper_kps = data['upper_human_kps_pred']
+    lower_kps = data['lower_human_kps_pred']
     upper_raw_state,lower_raw_state = generate_lists(len(upper_box),upper_hit,lower_hit)
     upper_state = return_plus(upper_raw_state,upper_box)
     lower_state = return_plus(lower_raw_state,lower_box)
-    upper_final_state = hit_plus(upper_state,upper_hit_intervals,upper_action,upper_hand,'upper',ball_states)
-    lower_final_state = hit_plus(lower_state,lower_hit_intervals,lower_action,lower_hand,'lower',ball_states)
+    upper_final_state = hit_plus(upper_state,upper_hit_intervals,upper_action,upper_kps,upper_hand,'upper',ball_states)
+    lower_final_state = hit_plus(lower_state,lower_hit_intervals,lower_action,lower_kps,lower_hand,'lower',ball_states)
     return upper_final_state,lower_final_state
 
 def change_direction(data,upper_state_list,lower_state_list):

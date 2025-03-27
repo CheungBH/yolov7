@@ -316,26 +316,34 @@ def return_plus(states, box):
             updated_states[i] = 'ready'
     return updated_states
 
-def hit_plus(state,intervals,human_action,hand,key='upper',ball_states=[]):
+def hit_plus(state,intervals,human_action,human_kps,hand,key='upper',ball_states=[]):
 
     for start, end in intervals:
-        filtered_data = [x for x in human_action[start:end + 1] if x not in [-1, 3]]
-        if not filtered_data:
-            valid_action =  "not sure"
-        else:
-            element_counts = Counter(filtered_data)
-            most_common_element, _ = element_counts.most_common(1)[0]
-            if most_common_element == 2:
-                serve_count =  Counter(ball_states[start:end + 1])
-                most_curve_element, _ = serve_count.most_common(1)[0]
-                if most_curve_element == 'serve':
-                    valid_action = "serve"
-                else:
-                    valid_action = "overhead"
-            elif (most_common_element ==  hand and key =='lower') or (most_common_element !=  hand and key =='upper'):
-                valid_action = "backhand"
+        overhead_count =  human_action[start:end + 1].count(3)
+        if overhead_count > 0.3*(end-start+1):
+            serve_count = Counter(ball_states[start:end + 1])
+            most_curve_element, _ = serve_count.most_common(1)[0]
+            if most_curve_element == 'serve':
+                valid_action = "serve"
             else:
-                valid_action = "forehand"
+                valid_action = "overhead"
+        else:
+            if set(ball_states) and set(human_action[start:end + 1]):
+                filtered_data = [x for x in human_action[start:end + 1] if x not in [-1, 3]]
+                if not filtered_data:
+                    valid_action = "not sure"
+                else:
+                    element_counts = Counter(filtered_data)
+                    most_common_element, _ = element_counts.most_common(1)[0]
+                    if most_common_element == 2:
+                        valid_action = "overhead"
+                    elif (most_common_element == hand and key == 'lower') or (
+                            most_common_element != hand and key == 'upper'):
+                        valid_action = "backhand"
+                    else:
+                        valid_action = "forehand"
+            else:
+                valid_action = "volley"
         state[start:end + 1] = [valid_action] * (end - start + 1)
     return state
 
