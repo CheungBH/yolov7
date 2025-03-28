@@ -349,7 +349,7 @@ def main(csv_file,video_file, output_video_folder, info_json):
         upper_change_times = draw_change_directions(frame, frame_id,upper_direction_list,upper_right_corner)
         lower_change_times = draw_change_directions(frame, frame_id, lower_direction_list, lower_right_corner)
         draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_landings)
-        draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time,hit_time,fps)
+        draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time,hit_time, fps)
         out.write(frame)
         cv2.imshow('Video', frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):

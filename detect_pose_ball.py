@@ -52,7 +52,10 @@ class Queue:
             else:
                 self.queue.append((item[0] / self.w, item[1] / self.h))
         else:
-            self.queue.append((item[0] / self.w, item[1] / self.h))
+            if -1 in item:
+                self.queue.append((-1, -1))
+            else:
+                self.queue.append((item[0] / self.w, item[1] / self.h))
         # if len(item) == 0:
         #     if self.queue:
         #         self.queue.append(self.queue[-1])
@@ -100,12 +103,12 @@ def detect():
     label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
     highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
 
-    landing_path = 'weights/latest_assets/landing/latest_landing.joblib'
+    landing_path = r"D:\tmp\3.27\4-knn-serve\model.joblib"
     curve_class_file = os.path.join(os.path.dirname(landing_path), "classes.txt")
     with open(curve_class_file, 'r') as file:
         curve_class = [line[:-1] for line in file.readlines()]
     curve_model = joblib.load(landing_path)
-    ball_curve_color = [(0, 255, 0), (0, 0, 255)]
+    ball_curve_color = [(0, 255, 0), (0, 0, 255), (255, 0, 0)]
 
     x_regression_path = 'weights/latest_assets/x_regression.joblib'
     x_regressor = joblib.load(x_regression_path)
@@ -229,6 +232,7 @@ def detect():
         box_assets['mask'] = mask_points
         box_assets['mask_type'] = click_type
 
+    last_valid_ball = []
     box_f_filter = open(box_assets_filter_path,'w')
     court_detector = CourtDetector(mask_points)
     init_lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points)
@@ -370,6 +374,8 @@ def detect():
         court_detector.visualize(im0, lines)
 
         ball_location = data_manger.get_ball()
+        if -1 not in ball_location:
+            last_valid_ball.append(ball_location)
         BoxProcessor.enqueue(ball_location)
         BoxRegProcessor.enqueue(ball_location)
 
@@ -382,8 +388,10 @@ def detect():
             ball_locations = BoxProcessor.get_queue()
             curve_cls = int(curve_model.predict(np.expand_dims(np.array(ball_locations).flatten(), axis=0))[0])
             curve_status = curve_class[curve_cls]
-            if -1 not in ball_location:
-                cv2.putText(im0, curve_status, (int(ball_location[0]), int(ball_location[1])),
+            if len(last_valid_ball):
+                vis_ball_loc = last_valid_ball[-1]
+            # if -1 not in ball_location:
+                cv2.putText(im0, curve_status, (int(vis_ball_loc[0]), int(vis_ball_loc[1])),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, ball_curve_color[curve_cls], 2)
 
         kps = data_manger.get_kps_prediction_input(seq_step, seq_num)

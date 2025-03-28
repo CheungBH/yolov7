@@ -32,6 +32,9 @@ class TopViewProcessor:
             cv2.circle(frame, (int(human[0]), int(human[1])), 45, (0, 0, 255), -1)
         return frame
 
+    def visualize_dummy(self):
+        return self.court.copy()
+
     # def transform_player_location(self, matrix, locations):
     #     feet = np.array([(locations[0] + (locations[2] - locations[0]) / 2), locations[3]]).reshape((1, 1, 2))
     #     feet_court = cv2.perspectiveTransform(feet, matrix).reshape(-1)

@@ -230,6 +230,7 @@ def detect():
     box_f_filter = open(box_assets_filter_path,'w')
     court_detector = CourtDetector(mask_points)
     init_lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points)
+    init_matrix = court_detector.game_warp_matrix[-1]
     classifier_list =[]
     classifier_status_list = []
     # central_y, central_x = int((init_lines[9] + init_lines[11])//2), int((init_lines[-12] + init_lines[-10])//2)
@@ -242,6 +243,7 @@ def detect():
 
         if use_saved_box:
             classifier_result = int(box_assets[str(idx)]["classifier"])
+            classifier_status = classifier_result
         else:
             box_assets[idx] = {}
             classifier_result = highlight_classifier(im0s).tolist() # 0: playing, 1: highlight
@@ -355,17 +357,23 @@ def detect():
                 court_detector = CourtDetector(mask_points)
                 lines = court_detector.detect(frame=im0s, mask_points=mask_points)
             else:
-                if classifier_status_list[-2] == 0:
-                    try:
+                try:
+                    if classifier_status_list[-2] == 0:
                         lines = court_detector.track_court(frame=im0s, mask_points=mask_points)
-                    except:
+                        # court_detector = CourtDetector(mask_points)
+                        # lines = court_detector.detect(frame=im0s, mask_points=mask_points)
+                    elif classifier_status_list[-2] == 1:
                         court_detector = CourtDetector(mask_points)
                         lines = court_detector.detect(frame=im0s, mask_points=mask_points)
-                elif classifier_status_list[-2] == 1:
-                    court_detector = CourtDetector(mask_points)
-                    lines = court_detector.detect(frame=im0s, mask_points=mask_points)
-
-            current_matrix = court_detector.game_warp_matrix[-1]
+                except:
+                    lines = init_lines
+            if lines is None:
+                lines = init_lines
+                # current_matrix
+            try:
+                current_matrix = court_detector.game_warp_matrix[-1]
+            except:
+                current_matrix = init_matrix
             highlight_classifier.visualize(im0, classifier_result)
 
             if BoxRegProcessor.check_enough():
@@ -431,29 +439,43 @@ def detect():
 
             # Visualize
             tv_list.append(cv2.resize(top_view_img, (top_view_w, top_view_h)))
-            frame_list.append(im0)
 
-            if idx >= adjacent_frame:
-                display_img = frame_list[0]
-                topview_img = tv_list[0]
-                if not opt.no_show:
-                    cv2.imshow("Top View", topview_img)
-                    cv2.imshow(str(p), display_img)
-
-                if output_folder:
-                    output_writer.write(display_img)
-                    topview_writer.write(topview_img)
-
-                del frame_list[0]
-                del tv_list[0]
-
-                if not opt.no_show:
-                    cv2.waitKey(opt.wait_key)
         else:
-            for key in box_assets[idx-1]:
-                box_assets[idx][key] = [-1,-1]
-            for key in strategy_assets[idx - 1]:
-                strategy_assets[idx][key] = [-1, -1]
+            box_assets[idx] = {}
+            classifier_result = highlight_classifier(im0s).tolist()  # 0: playing, 1: highlight
+            highlight_classifier.visualize(im0s, classifier_result)
+
+            classifier_list.append(classifier_result)
+            box_assets[idx]["classifier"] = classifier_result
+            data_assets = {}
+            data_assets["person"] = -1
+            data_assets["ball"] = -1
+            data_assets["classifier"] = -1
+            data_assets["court"] = -1
+            data_assets["ball_prediction"] = -1
+            strategy_assets = data_manger.get_strategy_assets_dummy(idx)
+
+        frame_list.append(im0s)
+        # tv_list.append()
+        tv_list.append(cv2.resize(top_view.visualize_dummy(), (top_view_w, top_view_h)))
+
+        if idx >= adjacent_frame:
+            display_img = frame_list[0]
+            topview_img = tv_list[0]
+            if not opt.no_show:
+                cv2.imshow("Top View", topview_img)
+                cv2.imshow(str(p), display_img)
+
+            if output_folder:
+                output_writer.write(display_img)
+                topview_writer.write(topview_img)
+
+            del frame_list[0]
+            del tv_list[0]
+
+            if not opt.no_show:
+                cv2.waitKey(opt.wait_key)
+
     if not use_saved_box:
         json.dump(box_assets, box_f, indent=4)
         box_f.close()
@@ -472,8 +494,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pose_weights', nargs='+', type=str, default="weights/latest_assets/yolopose_4lr.pt", help='model.pt path(s)')
     parser.add_argument('--ball_weights', nargs='+', type=str, default="weights/latest_assets/ball.pt", help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default=r"D:\tmp\3.26\candidates_output_0327\20231011_lxr_yt_12\20231011_lxr_yt_12.mp4", help='source')  # file/folder, 0 for webcam
-    parser.add_argument("--output_folder", default="output")
+    parser.add_argument('--source', type=str, default=r"C:\Users\User\Desktop\game1.mp4", help='source')  # file/folder, 0 for webcam
+    parser.add_argument("--output_folder", default="output_whole/game1")
     # parser.add_argument("--output_csv_file", default="2s.csv")
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--pose-thres', type=float, default=0.25, help='object confidence threshold')

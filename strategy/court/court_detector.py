@@ -506,6 +506,7 @@ class CourtDetector:
 
             print(len(new_points))
             if len(new_points) < 50:
+                return None
                 print('CAMERA ...', end=' ')
                 if self.dist > 20:
                     print('HAS BEEN MOVED')
@@ -522,6 +523,7 @@ class CourtDetector:
                     return
                 else:
                     print('Court tracking failed, adding 5 pixels to dist')
+                    return None
                     self.dist += 5
                     # print(self.b)
                     return self.track_court(frame)

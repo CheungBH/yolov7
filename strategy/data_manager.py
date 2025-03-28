@@ -76,6 +76,35 @@ class DataManagement:
         }
         return self.assets
 
+
+    def get_strategy_assets_dummy(self, f_id):
+        self.assets[f_id] = {
+            "classifier": 1,
+            # "human": [self.players_boxes[i][-1] for i in range(self.player_num)],
+            "upper_human": -1,
+            "lower_human": -1,
+            "upper_actions": -1,
+            "lower_actions": -1,
+            "real_upper_human": -1,
+            "real_lower_human": -1,
+            # "action": [self.players_actions[i][-1] for i in range(self.player_num)],
+            # "kp": [self.players_kps[i][-1] for i in range(self.player_num)],
+            "ball": -1,
+            "real_ball": -1,
+            # "real_human": [self.real_players[i][-1] for i in range(self.player_num)],
+            "court": -1,
+            "ball_prediction": -1,
+            "curve_status": -1,
+            "middle_line": -1,
+            "rally_cnt": -1,
+            "lower_human_kps": -1,
+            "upper_human_kps": -1,
+            "lower_human_kps_pred": -1,
+            "upper_human_kps_pred": -1,
+        }
+        return self.assets
+
+
     def first_filter(self, box_assets,current_matrix,idx):
         self.classifier_raw.append(box_assets['classifier'])
         self.balls_raw.append(box_assets['ball'])

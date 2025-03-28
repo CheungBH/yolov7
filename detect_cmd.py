@@ -14,8 +14,8 @@ def click_points(event, x, y, flags, param):
 def main():
     # 1. 读取文件夹中的所有 .mp4 文件
     # folder_path = r"D:\Ai_tennis\yolov7_main\test_video\Grass"
-    folder_path = r"D:\tmp\3.24\candidates"
-    output_folder = r"D:\tmp\3.24\candidates_output_0327"
+    folder_path = r"D:\tmp\3.26\3.24\candidates"
+    output_folder = r"D:\tmp\3.27\candidates_output_refineColor_newlanding"
     use_saved_box = True
 
     mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
@@ -87,6 +87,7 @@ def main():
         if use_saved_box:
             cmd += ' --use_saved_box'
         print("processing video {}: {}/{}".format(file, v_idx+1, total_videos))
+        # print(cmd)
         subprocess.run(cmd, shell=True)
 
 
