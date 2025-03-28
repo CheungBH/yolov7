@@ -1,8 +1,6 @@
 import argparse
 import time
 import os
-from heapq import merge
-
 from scripts.json2csv import json_to_csv
 import json
 from strategy.json_analysis import main as json_analysis
@@ -21,7 +19,7 @@ from collections import deque
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
-    scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path, merge_image, merge_video
+    scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.pose.general import save_one_box, non_max_suppression as pose_non_max_suppression, scale_coords as pose_scale_coords
 from utils.plots import plot_one_box
 from utils.pose.plots import colors as pose_colors, plot_skeleton_kpts, plot_one_box as pose_plot_one_box
@@ -175,7 +173,7 @@ def detect():
     pose_names = pose_model.module.names if hasattr(pose_model, 'module') else pose_model.names
     ball_names = ["ball"]
     names = [ball_names, pose_names]
-    click_type = 'inner' # 'detect' or 'inner'
+    click_type = 'detect' # 'detect' or 'inner'
     keep_court = False
 
     ball_color = [(128, 0, 128)]
@@ -232,6 +230,8 @@ def detect():
     box_f_filter = open(box_assets_filter_path,'w')
     court_detector = CourtDetector(mask_points)
     init_lines = court_detector.begin(type=click_type, frame=img, mask_points=mask_points)
+    classifier_list =[]
+    classifier_status_list = []
     # central_y, central_x = int((init_lines[9] + init_lines[11])//2), int((init_lines[-12] + init_lines[-10])//2)
 
     for idx, (path, img, im0s, vid_cap) in enumerate(dataset):
@@ -245,205 +245,222 @@ def detect():
         else:
             box_assets[idx] = {}
             classifier_result = highlight_classifier(im0s).tolist() # 0: playing, 1: highlight
+            classifier_list.append(classifier_result)
             box_assets[idx]["classifier"] = classifier_result
 
-        ball_center = []
-        img = torch.from_numpy(img).to(device)
-        img = img.half() if half else img.float()  # uint8 to fp16/32
-        img /= 255.0  # 0 - 255 to 0.0 - 1.0
-        if img.ndimension() == 3:
-            img = img.unsqueeze(0)
-
-        # Inference
-        if use_saved_box:
-            t1 = time_synchronized()
-            ball_pred = [torch.tensor(box_assets[str(idx)]["ball"])]
-            pose_pred = [torch.tensor(box_assets[str(idx)]["person"])]
-            t2 = time_synchronized()
-            t3 = time_synchronized()
-
-        else:
-            t1 = time_synchronized()
-            with torch.no_grad():   # Calculating gradients would cause a GPU memory leak
-                ball_pred = ball_model(img, augment=opt.augment)[0]
-                pose_pred = pose_model(img, augment=opt.augment)[0]
-            t2 = time_synchronized()
-
-            # Apply NMS
-            ball_pred = non_max_suppression(ball_pred, opt.ball_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
-            pose_pred = pose_non_max_suppression(pose_pred, opt.pose_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms, kpt_label=True)
-            box_assets[idx]["ball"] = ball_pred[0].tolist() #.cpu().tolist()
-            box_assets[idx]["person"] = pose_pred[0].tolist()#.cpu().tolist()
-            t3 = time_synchronized()
-
-        preds = [ball_pred, pose_pred] # detection result
-        types = ["ball", "pose"]
-
-        for pred, color, name, typ in zip(preds, colors, names, types):
-            for i, det in enumerate(pred):  # detections per image
-                if webcam:  # batch_size >= 1
-                    p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
+            play_duration = 5  # 0: play 1:high
+            if len(classifier_list) < play_duration:
+                play_num = classifier_list.count(0)
+                if play_num < len(classifier_list) * 0.8:
+                    classifier_status = 1
                 else:
-                    p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
+                    classifier_status = 0
+            else:
+                play_actions_duration = classifier_list[-play_duration:]
+                play_num = play_actions_duration.count(0)
+                if play_num < play_duration * 0.8:
+                    classifier_status = 1
+                else:
+                    classifier_status = 0
+            classifier_status_list.append(classifier_status)
+            # box_assets[idx] = {}
+            # classifier_result = highlight_classifier(im0s).tolist() # 0: playing, 1: highlight
+            # box_assets[idx]["classifier"] = classifier_result
+        if classifier_status == 0:
+            ball_center = []
+            img = torch.from_numpy(img).to(device)
+            img = img.half() if half else img.float()  # uint8 to fp16/32
+            img /= 255.0  # 0 - 255 to 0.0 - 1.0
+            if img.ndimension() == 3:
+                img = img.unsqueeze(0)
 
-                p = Path(p)  # to Path
-                s += '%gx%g ' % img.shape[2:]  # print string
-                if len(det):
-                    if typ == 'pose':
-                        # pose_output = det.cpu().tolist()
-                        pose_scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
-                        pose_scale_coords(img.shape[2:], det[:, 6:], im0.shape, kpt_label=True, step=3)
+            # Inference
+            if use_saved_box:
+                t1 = time_synchronized()
+                ball_pred = [torch.tensor(box_assets[str(idx)]["ball"])]
+                pose_pred = [torch.tensor(box_assets[str(idx)]["person"])]
+                t2 = time_synchronized()
+                t3 = time_synchronized()
 
-                        tracked_pose = tracker.update(det.cpu())
-                        # Print results
-                        for c in det[:, 5].unique():
-                            n = (det[:, 5] == c).sum()  # detections per class
-                            s += f"{n} {name[int(c)]}{'s' * (n > 1)}, "  # add to string
+            else:
+                t1 = time_synchronized()
+                with torch.no_grad():   # Calculating gradients would cause a GPU memory leak
+                    ball_pred = ball_model(img, augment=opt.augment)[0]
+                    pose_pred = pose_model(img, augment=opt.augment)[0]
+                t2 = time_synchronized()
 
-                        # Write results
-                        for det_index, (*xyxy, id, cls) in enumerate(tracked_pose[:, :6]):
-                            # humans_box.append([i.tolist() for i in xyxy])
-                            # humans_action.append(name[int(cls)])
+                # Apply NMS
+                ball_pred = non_max_suppression(ball_pred, opt.ball_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
+                pose_pred = pose_non_max_suppression(pose_pred, opt.pose_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms, kpt_label=True)
+                box_assets[idx]["ball"] = ball_pred[0].tolist() #.cpu().tolist()
+                box_assets[idx]["person"] = pose_pred[0].tolist()#.cpu().tolist()
+                t3 = time_synchronized()
 
-                            c = int(cls)  # integer class
-                            label = f'id: {id:.2f}, {name[c]} '
-                            kpts = det[det_index, 6:]  # 51/3 =17个点
-                            pose_plot_one_box(xyxy, im0, label=label, color=color(c, True), line_thickness=1,
-                                              kpt_label=True, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
+            preds = [ball_pred, pose_pred] # detection result
+            types = ["ball", "pose"]
+
+            for pred, color, name, typ in zip(preds, colors, names, types):
+                for i, det in enumerate(pred):  # detections per image
+                    if webcam:  # batch_size >= 1
+                        p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
                     else:
-                        scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
-                        # Print results
-                        for c in det[:, -1].unique():
-                            n = (det[:, -1] == c).sum()  # detections per class
-                            s += f"{n} {name[int(c)]}{'s' * (n > 1)}, "  # add to string
+                        p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
 
-                        # Write results
-                        for *xyxy, conf, cls in det[:, :6]:
-                            if len(xyxy):
-                                ball_center.append([(xyxy[0].tolist() + xyxy[2].tolist()) / 2,
-                                                    (xyxy[1].tolist() + xyxy[3].tolist()) / 2])
-                            else:
-                                ball_center.append([-1,-1])
-                            label = f'{name[int(cls)]} {conf:.2f}'
-                            plot_one_box(xyxy, im0, label=label, color=color[int(cls)], line_thickness=1)
+                    p = Path(p)  # to Path
+                    s += '%gx%g ' % img.shape[2:]  # print string
+                    if len(det):
+                        if typ == 'pose':
+                            # pose_output = det.cpu().tolist()
+                            pose_scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
+                            pose_scale_coords(img.shape[2:], det[:, 6:], im0.shape, kpt_label=True, step=3)
 
-                # Print time (inference + NMS)
-                print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
-        if classifier_result == 1:
-            break
-        try:
-            lines = court_detector.track_court(frame=im0, mask_points=mask_points)  # detect lines and track lines
-        except:
-            break
-        current_matrix = court_detector.game_warp_matrix[-1]
-        highlight_classifier.visualize(im0, classifier_result)
+                            tracked_pose = tracker.update(det.cpu())
+                            # Print results
+                            for c in det[:, 5].unique():
+                                n = (det[:, 5] == c).sum()  # detections per class
+                                s += f"{n} {name[int(c)]}{'s' * (n > 1)}, "  # add to string
 
-        if BoxRegProcessor.check_enough():
-            ball_locations = BoxRegProcessor.get_queue()
-            ball_x = np.array([b[0] for b in ball_locations])
-            ball_x = np.expand_dims(ball_x, axis=0)
-            ball_y = np.array([b[1] for b in ball_locations])
-            ball_y = np.expand_dims(ball_y, axis=0)
-            ball_next_x = x_regressor.predict(ball_x)
-            ball_next_y = y_regressor.predict(ball_y)
-            ball_next_real_x = ball_next_x * dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-            ball_next_real_y = ball_next_y * dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-            pred_ball_location = [int(ball_next_real_x[0]), int(ball_next_real_y[0])]
-            cv2.circle(im0, (int(ball_next_real_x[0]), int(ball_next_real_y[0])), 5, (0, 255, 0), -1)
+                            # Write results
+                            for det_index, (*xyxy, id, cls) in enumerate(tracked_pose[:, :6]):
+                                # humans_box.append([i.tolist() for i in xyxy])
+                                # humans_action.append(name[int(cls)])
+
+                                c = int(cls)  # integer class
+                                label = f'id: {id:.2f}, {name[c]} '
+                                kpts = det[det_index, 6:]  # 51/3 =17个点
+                                pose_plot_one_box(xyxy, im0, label=label, color=color(c, True), line_thickness=1,
+                                                  kpt_label=True, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
+                        else:
+                            scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                            # Print results
+                            for c in det[:, -1].unique():
+                                n = (det[:, -1] == c).sum()  # detections per class
+                                s += f"{n} {name[int(c)]}{'s' * (n > 1)}, "  # add to string
+
+                            # Write results
+                            for *xyxy, conf, cls in det[:, :6]:
+                                if len(xyxy):
+                                    ball_center.append([(xyxy[0].tolist() + xyxy[2].tolist()) / 2,
+                                                        (xyxy[1].tolist() + xyxy[3].tolist()) / 2])
+                                else:
+                                    ball_center.append([-1,-1])
+                                label = f'{name[int(cls)]} {conf:.2f}'
+                                plot_one_box(xyxy, im0, label=label, color=color[int(cls)], line_thickness=1)
+
+                    # Print time (inference + NMS)
+                    print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
+
+            # Predefined lines for classifier_status[-1] == 0 cases
+            if len(classifier_status_list) == 1:
+                court_detector = CourtDetector(mask_points)
+                lines = court_detector.detect(frame=im0s, mask_points=mask_points)
+            else:
+                if classifier_status_list[-2] == 0:
+                    lines = court_detector.track_court(frame=im0s, mask_points=mask_points)
+                elif classifier_status_list[-2] == 1:
+                    court_detector = CourtDetector(mask_points)
+                    lines = court_detector.detect(frame=im0s, mask_points=mask_points)
+
+            current_matrix = court_detector.game_warp_matrix[-1]
+            highlight_classifier.visualize(im0, classifier_result)
+
+            if BoxRegProcessor.check_enough():
+                ball_locations = BoxRegProcessor.get_queue()
+                ball_x = np.array([b[0] for b in ball_locations])
+                ball_x = np.expand_dims(ball_x, axis=0)
+                ball_y = np.array([b[1] for b in ball_locations])
+                ball_y = np.expand_dims(ball_y, axis=0)
+                ball_next_x = x_regressor.predict(ball_x)
+                ball_next_y = y_regressor.predict(ball_y)
+                ball_next_real_x = ball_next_x * dataset.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+                ball_next_real_y = ball_next_y * dataset.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+                pred_ball_location = [int(ball_next_real_x[0]), int(ball_next_real_y[0])]
+                cv2.circle(im0, (int(ball_next_real_x[0]), int(ball_next_real_y[0])), 5, (0, 255, 0), -1)
+            else:
+                pred_ball_location = (-1,-1)
+
+            data_assets = {}
+            data_assets["person"] = tracked_pose
+            data_assets["ball"] = ball_center
+            data_assets["classifier"] = classifier_result
+            data_assets["court"] = lines
+            data_assets["ball_prediction"] = pred_ball_location
+
+            # data_manger.first_filter(data_assets)
+            data_manger.first_filter(data_assets,current_matrix,idx)
+            box_assets_filter = data_manger.real_players
+
+            real_ball = data_manger.real_balls[-1]
+            real_players = data_manger.real_players[-1]
+            top_view_img = top_view.visualize_bv(real_ball, real_players)
+            court_detector.visualize(im0, lines)
+
+            ball_location = data_manger.get_ball()
+            BoxProcessor.enqueue(ball_location)
+            BoxRegProcessor.enqueue(ball_location)
+
+            if not BoxProcessor.check_enough():
+                curve_status = "Pending"
+                if -1 not in ball_location:
+                    cv2.putText(im0, curve_status, (int(ball_location[0]), int(ball_location[1])),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+            else:
+                ball_locations = BoxProcessor.get_queue()
+                curve_cls = int(curve_model.predict(np.expand_dims(np.array(ball_locations).flatten(), axis=0))[0])
+                curve_status = curve_class[curve_cls]
+                if -1 not in ball_location:
+                    cv2.putText(im0, curve_status, (int(ball_location[0]), int(ball_location[1])),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, ball_curve_color[curve_cls], 2)
+
+            kps = data_manger.get_kps_prediction_input(seq_step, seq_num)
+            if kps:
+                seqML_result = seqML_model.predict(np.array(kps)).tolist()
+                for _, (result, player_loc) in enumerate(zip(seqML_result, data_manger.get_player_foot_pixels())):
+                    i = int(result)
+                    cv2.putText(im0, seq_ML_classes[i], (int(player_loc[0]), int(player_loc[1])),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, seqML_colors[i], 2)
+            else:
+                seqML_result = [-1 for _ in range(player_num)]
+
+            data_manger.second_update(landing=curve_status, kps_pred=seqML_result) # pending -1, flying 0,landing 1
+            strategy_assets = data_manger.get_strategy_assets()
+
+            # Visualize
+            tv_list.append(cv2.resize(top_view_img, (top_view_w, top_view_h)))
+            frame_list.append(im0)
+
+            if idx >= adjacent_frame:
+                display_img = frame_list[0]
+                topview_img = tv_list[0]
+                if not opt.no_show:
+                    cv2.imshow("Top View", topview_img)
+                    cv2.imshow(str(p), display_img)
+
+                if output_folder:
+                    output_writer.write(display_img)
+                    topview_writer.write(topview_img)
+
+                del frame_list[0]
+                del tv_list[0]
+
+                if not opt.no_show:
+                    cv2.waitKey(opt.wait_key)
         else:
-            pred_ball_location = (-1,-1)
-
-        data_assets = {}
-        data_assets["person"] = tracked_pose
-        data_assets["ball"] = ball_center
-        data_assets["classifier"] = classifier_result
-        data_assets["court"] = lines.tolist()
-        data_assets["ball_prediction"] = pred_ball_location
-
-        # data_manger.first_filter(data_assets)
-        data_manger.first_filter(data_assets,current_matrix,idx)
-        box_assets_filter = data_manger.real_players
-
-        real_ball = data_manger.real_balls[-1]
-        real_players = data_manger.real_players[-1]
-        top_view_img = top_view.visualize_bv(real_ball, real_players)
-        court_detector.visualize(im0, lines)
-
-        ball_location = data_manger.get_ball()
-        BoxProcessor.enqueue(ball_location)
-        BoxRegProcessor.enqueue(ball_location)
-
-        if not BoxProcessor.check_enough():
-            curve_status = "Pending"
-            if -1 not in ball_location:
-                cv2.putText(im0, curve_status, (int(ball_location[0]), int(ball_location[1])),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-        else:
-            ball_locations = BoxProcessor.get_queue()
-            curve_cls = int(curve_model.predict(np.expand_dims(np.array(ball_locations).flatten(), axis=0))[0])
-            curve_status = curve_class[curve_cls]
-            if -1 not in ball_location:
-                cv2.putText(im0, curve_status, (int(ball_location[0]), int(ball_location[1])),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, ball_curve_color[curve_cls], 2)
-
-        kps = data_manger.get_kps_prediction_input(seq_step, seq_num)
-        if kps:
-            seqML_result = seqML_model.predict(np.array(kps)).tolist()
-            for _, (result, player_loc) in enumerate(zip(seqML_result, data_manger.get_player_foot_pixels())):
-                i = int(result)
-                cv2.putText(im0, seq_ML_classes[i], (int(player_loc[0]), int(player_loc[1])),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, seqML_colors[i], 2)
-        else:
-            seqML_result = [-1 for _ in range(player_num)]
-
-        data_manger.second_update(landing=curve_status, kps_pred=seqML_result) # pending -1, flying 0,landing 1
-        strategy_assets = data_manger.get_strategy_assets()
-
-        # Visualize
-        tv_list.append(cv2.resize(top_view_img, (top_view_w, top_view_h)))
-        frame_list.append(im0)
-
-        if idx >= adjacent_frame:
-            display_img = frame_list[0]
-            topview_img = tv_list[0]
-            if not opt.no_show:
-                cv2.imshow("Top View", topview_img)
-                cv2.imshow(str(p), display_img)
-
-            if output_folder:
-                output_writer.write(display_img)
-                topview_writer.write(topview_img)
-
-            del frame_list[0]
-            del tv_list[0]
-
-            if not opt.no_show:
-                cv2.waitKey(opt.wait_key)
-
-    output_writer.release()
-    topview_writer.release()
-    if output_folder:
-        if not use_saved_box:
-            json.dump(box_assets, box_f,indent =4)
-            box_f.close()
+            for key,value in box_assets[idx-1]:
+                box_assets[idx][key] = [-1,-1]
+            for key, value in strategy_assets[idx - 1]:
+                strategy_assets[idx][key] = [-1, -1]
+    if not use_saved_box:
+        json.dump(box_assets, box_f, indent=4)
+        box_f.close()
         json.dump(strategy_assets, box_f_filter, indent=4)
         box_f_filter.close()
 
-        csv_file_path = os.path.join(output_folder, os.path.basename(source).split(".")[0] + ".csv")
-        json_to_csv(box_assets_filter_path, csv_file_path)
-        shutil.copy(source, os.path.join(output_folder, os.path.basename(source)))
-        shutil.copy(box_asset_path, os.path.join(output_folder, os.path.basename(box_asset_path)))
-        json_analysis(box_assets_filter_path, source, output_folder, "info.json")
-        shutil.copy("info.json", os.path.join(output_folder, "info.json"))
-
-        merge_video(output_video, topview_video, os.path.join(output_folder, "merged_detect.mp4"))
-        merge_video(os.path.join(output_folder, 'analysis_output.mp4'), topview_video,
-                    os.path.join(output_folder, "merged_analysis.mp4"))
-        merge_image([os.path.join(output_folder, "ball_heatmap.png"),
-                     os.path.join(output_folder, "lower_human_hit_heatmap.png"),
-                     os.path.join(output_folder, "upper_human_hit_heatmap.png")],
-                    os.path.join(output_folder, "heatmap.png"))
-
+    csv_file_path = os.path.join(output_folder, os.path.basename(source).split(".")[0] + ".csv")
+    json_to_csv(box_assets_filter_path, csv_file_path)
+    shutil.copy(source, os.path.join(output_folder, os.path.basename(source)))
+    shutil.copy(box_asset_path, os.path.join(output_folder, os.path.basename(box_asset_path)))
+    json_analysis(box_assets_filter_path, source, output_folder, "info.json")
 
 
 

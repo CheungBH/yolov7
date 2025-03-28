@@ -116,19 +116,20 @@ class DataManagement:
         return feet
 
     def process_classifier(self, classifier):
-        play_duration = 5
-        play_actions = [True if action == "play" else False for action in classifier] #0:highlight, 1:play
-        if len(play_actions) < play_duration:
-            if sum(play_actions) < len(play_actions):
-                classifier_status = 0
-            else:
+        play_duration = 5 # 0: play 1:high
+        if len(classifier) < play_duration:
+            play_num = classifier.count(0)
+            if play_num < len(classifier)*0.8:
                 classifier_status = 1
+            else:
+                classifier_status = 0
         else:
-            play_actions_duration = play_actions[-play_duration:]
-            if sum(play_actions_duration) < play_duration:
-                classifier_status = 0
-            else:
+            play_actions_duration = classifier[-play_duration:]
+            play_num = play_actions_duration.count(0)
+            if play_num < play_duration*0.8:
                 classifier_status = 1
+            else:
+                classifier_status = 0
         self.classifier.append(classifier_status)
 
     def process_ball(self, ball_location, pred_ball_location):
