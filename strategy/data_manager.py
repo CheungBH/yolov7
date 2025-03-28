@@ -251,7 +251,7 @@ class DataManagement:
     def get_rally_cnt(self):
         frame_duration =5
         current_y=self.balls[-1][1]
-        self.ball_position.append("lower" if current_y > self.middle_line-30 else "upper" if current_y != -1 else None)
+        self.ball_position.append("lower" if current_y > self.middle_line-50 else "upper" if current_y != -1 else None)
         if len(self.ball_position) > frame_duration:
             upper_count = self.ball_position[-frame_duration:].count("upper")
             lower_count = self.ball_position[-frame_duration:].count("lower")

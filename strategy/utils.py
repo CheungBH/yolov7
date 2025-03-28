@@ -316,7 +316,7 @@ def return_plus(states, box):
             updated_states[i] = 'ready'
     return updated_states
 
-def hit_plus(state,intervals,human_action,human_kps,hand,key='upper',ball_states=[]):
+def hit_plus(state,intervals,human_action,human_kps,hand,key='upper',ball_states=[],precise_landings=[]):
 
     for start, end in intervals:
         overhead_count =  human_action[start:end + 1].count(2)
@@ -328,7 +328,7 @@ def hit_plus(state,intervals,human_action,human_kps,hand,key='upper',ball_states
             else:
                 valid_action = "overhead"
         else:
-            if set(ball_states) and set(human_kps[start:end + 1]):
+            if any(start <= num <= end+1 for num in precise_landings):
                 filtered_data = [x for x in human_kps[start:end + 1] if x not in [-1, 3]]
                 if not filtered_data:
                     valid_action = "not sure"
@@ -517,24 +517,6 @@ def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper
         "dropshot": (33, 124, 77),
         "not sure": (145, 225, 24)
     }
-    # upper_color = (
-    #     (255, 0, 0) if upper_state_list[frame_id] == 'approach' else
-    #     (0, 255, 0) if upper_state_list[frame_id] == 'return' else
-    #     (255, 0, 255) if upper_state_list[frame_id] == 'forehand' else
-    #     (125, 125, 255) if upper_state_list[frame_id] == 'backhand' else
-    #     (0, 0, 255) if upper_state_list[frame_id] == 'overhead' else
-    #     (0, 0, 0) if upper_state_list[frame_id] == 'not sure' else
-    #     (0, 255, 255)
-    # )
-    # lower_color = (
-    #     (255, 0, 0) if lower_state_list[frame_id] == 'approach' else
-    #     (0, 255, 0) if lower_state_list[frame_id] == 'return' else
-    #     (255, 0, 255) if upper_state_list[frame_id] == 'forehand' else
-    #     (125, 125, 255) if upper_state_list[frame_id] == 'backhand' else
-    #     (0, 0, 255) if upper_state_list[frame_id] == 'overhead' else
-    #     (0, 0, 0) if upper_state_list[frame_id] == 'not sure' else
-    #     (0, 255, 255)
-    # )
     upper_box = data['upper_human'][frame_id]
     lower_box = data['lower_human'][frame_id]
     upper_state = upper_state_list[frame_id]

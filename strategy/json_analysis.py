@@ -2,7 +2,7 @@ import os
 import json
 import cv2
 from collections import defaultdict
-
+# from server_01 import ServeChecker
 from numpy.array_api import result_type
 try:
     from .utils import *
@@ -30,9 +30,10 @@ def read_info_json_file(json_file):
     with open(json_file, 'r') as f:
         datasets = json.load(f)
     serve_side = datasets['serve_side']
+    serve_part = datasets['serve_part']
     upper_hand = datasets['upper_hand'] # 0 : right 1 : left
     lower_hand = datasets['lower_hand']
-    return serve_side,upper_hand,lower_hand
+    return serve_side,serve_part,upper_hand,lower_hand
 
 def initialize_video_writer(video_file, output_folder):
     # content, folder = find_name_folder(video_file)
@@ -162,7 +163,7 @@ def cross_straight(data, hit_time):
                 cross_line[hit_t] = [ball_valid[idx+1], ball_valid[idx], 0]
     return cross_line
 
-def upper_lower_state(data, upper_hit, lower_hit, upper_hit_intervals, lower_hit_intervals,upper_hand,lower_hand):
+def upper_lower_state(data, upper_hit, lower_hit, upper_hit_intervals, lower_hit_intervals,upper_hand,lower_hand,precise_landings):
     upper_box = data["upper_human"]
     lower_box = data["lower_human"]
     ball_states = data['curve_status']
@@ -173,8 +174,8 @@ def upper_lower_state(data, upper_hit, lower_hit, upper_hit_intervals, lower_hit
     upper_raw_state,lower_raw_state = generate_lists(len(upper_box),upper_hit,lower_hit)
     upper_state = return_plus(upper_raw_state,upper_box)
     lower_state = return_plus(lower_raw_state,lower_box)
-    upper_final_state = hit_plus(upper_state,upper_hit_intervals,upper_action,upper_kps,upper_hand,'upper',ball_states)
-    lower_final_state = hit_plus(lower_state,lower_hit_intervals,lower_action,lower_kps,lower_hand,'lower',ball_states)
+    upper_final_state = hit_plus(upper_state,upper_hit_intervals,upper_action,upper_kps,upper_hand,'upper',ball_states,precise_landings)
+    lower_final_state = hit_plus(lower_state,lower_hit_intervals,lower_action,lower_kps,lower_hand,'lower',ball_states,precise_landings)
     return upper_final_state,lower_final_state
 
 def change_direction(data,upper_state_list,lower_state_list):
@@ -286,8 +287,11 @@ def write_json(path,data,serve_side,game_winner,last_landing,fps,ball_speed_list
 
 def main(csv_file,video_file, output_video_folder, info_json):
     os.makedirs(output_video_folder,exist_ok=True)
-    serve_side,upper_hand,lower_hand = read_info_json_file(info_json)
+    serve_side,serve_part,upper_hand,lower_hand = read_info_json_file(info_json)
     data = read_json_file(csv_file)
+    # server_rally = ServeChecker(serve_side,serve_part)
+    # server_rally.process(data)
+
     cap, fps, width, height = initialize_video_writer(video_file, output_video_folder)
 
     video_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -302,7 +306,8 @@ def main(csv_file,video_file, output_video_folder, info_json):
     precise_landings = precise_landing(data, rally_change_intervals)
     game_winner,last_landing = finish_analysis(data,serve_side,precise_landings)
     cross_straight_dict = cross_straight(data, hit_time)
-    upper_state_list, lower_state_list = upper_lower_state(data, upper_hit_time, lower_hit_time, upper_hit_intervals, lower_hit_intervals,upper_hand,lower_hand)
+    upper_state_list, lower_state_list = upper_lower_state(data, upper_hit_time, lower_hit_time, upper_hit_intervals,
+                                                           lower_hit_intervals,upper_hand,lower_hand,precise_landings)
     upper_direction_list, lower_direction_list = change_direction(data,upper_state_list,lower_state_list)
     upper_approach_speed, lower_approach_speed,total_receiver_distance_upper,total_receiver_distance_lower = approached_speed(data,upper_state_list,lower_state_list)
     upper_change_times, lower_change_times = 0,0
@@ -344,7 +349,7 @@ def main(csv_file,video_file, output_video_folder, info_json):
         upper_change_times = draw_change_directions(frame, frame_id,upper_direction_list,upper_right_corner)
         lower_change_times = draw_change_directions(frame, frame_id, lower_direction_list, lower_right_corner)
         draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_landings)
-        draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time,hit_time)
+        draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time,hit_time,fps)
         out.write(frame)
         cv2.imshow('Video', frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -359,10 +364,10 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
 if __name__ == "__main__":
 
-    input_json_file = r"D:\tmp\3.27\candidates_output\TOP_100_SHOTS_RALLIES_2022_ATP_SEASON_86\TOP_100_SHOTS_RALLIES_2022_ATP_SEASON_86_filter.json"
-    input_video_file = r"D:\tmp\3.27\candidates_output\TOP_100_SHOTS_RALLIES_2022_ATP_SEASON_86\TOP_100_SHOTS_RALLIES_2022_ATP_SEASON_86.mp4"
+    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\xzy_yt_2\20231011_xzy_yt_1_filter.json"
+    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\xzy_yt_1\20231011_xzy_yt_1.mp4"
     output_video_folder = 'output/86'
-    info_json = r"info.json"
+    info_json = r"C:\Users\Public\zcj\yolov7\yolov7main\output\top100_97\info.json"
     # input_json_file = "output/kh_1/20231011_kh_yt_2_filter.json"
     # input_video_file = "output/kh_1/20231011_kh_yt_2.mp4"
     # output_video_folder = 'output/kh_1'
