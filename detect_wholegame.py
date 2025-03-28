@@ -394,7 +394,7 @@ def detect():
             data_assets["person"] = tracked_pose
             data_assets["ball"] = ball_center
             data_assets["classifier"] = classifier_result
-            data_assets["court"] = lines
+            data_assets["court"] = lines.tolist()
             data_assets["ball_prediction"] = pred_ball_location
 
             # data_manger.first_filter(data_assets)

@@ -103,7 +103,7 @@ def detect():
     label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
     highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
 
-    landing_path = r"D:\tmp\3.27\4-knn-serve\model.joblib"
+    landing_path = "weights/latest_assets/landing/latest_landing.joblib"
     curve_class_file = os.path.join(os.path.dirname(landing_path), "classes.txt")
     with open(curve_class_file, 'r') as file:
         curve_class = [line[:-1] for line in file.readlines()]
