@@ -370,10 +370,9 @@ def detect():
             if lines is None:
                 lines = init_lines
                 # current_matrix
-            try:
-                current_matrix = court_detector.game_warp_matrix[-1]
-            except:
-                current_matrix = init_matrix
+
+            current_matrix = court_detector.game_warp_matrix[-1]
+
             highlight_classifier.visualize(im0, classifier_result)
 
             if BoxRegProcessor.check_enough():
@@ -450,7 +449,7 @@ def detect():
             data_assets = {}
             data_assets["person"] = -1
             data_assets["ball"] = -1
-            data_assets["classifier"] = -1
+            data_assets["classifier"] = 1
             data_assets["court"] = -1
             data_assets["ball_prediction"] = -1
             strategy_assets = data_manger.get_strategy_assets_dummy(idx)
@@ -464,7 +463,7 @@ def detect():
             topview_img = tv_list[0]
             if not opt.no_show:
                 cv2.imshow("Top View", topview_img)
-                cv2.imshow(str(p), display_img)
+                cv2.imshow("Detect", display_img)
 
             if output_folder:
                 output_writer.write(display_img)
