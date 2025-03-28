@@ -356,7 +356,11 @@ def detect():
                 lines = court_detector.detect(frame=im0s, mask_points=mask_points)
             else:
                 if classifier_status_list[-2] == 0:
-                    lines = court_detector.track_court(frame=im0s, mask_points=mask_points)
+                    try:
+                        lines = court_detector.track_court(frame=im0s, mask_points=mask_points)
+                    except:
+                        court_detector = CourtDetector(mask_points)
+                        lines = court_detector.detect(frame=im0s, mask_points=mask_points)
                 elif classifier_status_list[-2] == 1:
                     court_detector = CourtDetector(mask_points)
                     lines = court_detector.detect(frame=im0s, mask_points=mask_points)
@@ -446,9 +450,9 @@ def detect():
                 if not opt.no_show:
                     cv2.waitKey(opt.wait_key)
         else:
-            for key,value in box_assets[idx-1]:
+            for key in box_assets[idx-1]:
                 box_assets[idx][key] = [-1,-1]
-            for key, value in strategy_assets[idx - 1]:
+            for key in strategy_assets[idx - 1]:
                 strategy_assets[idx][key] = [-1, -1]
     if not use_saved_box:
         json.dump(box_assets, box_f, indent=4)
