@@ -6,6 +6,50 @@ import cv2
 import matplotlib.pyplot as plt
 import os
 import numpy as np
+import json
+
+def split_json_by_ball(json_file, output_dir):
+    """
+    根据 data[entry]['ball'] == -1 的条件拆分 JSON 文件。
+
+    参数:
+        json_file (str): 输入的 JSON 文件路径。
+        output_dir (str): 输出小 JSON 文件的目录。
+    """
+    # 确保输出目录存在
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 读取原始 JSON 文件
+    with open(json_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    # 初始化变量
+    current_chunk = []  # 当前块的数据
+    chunk_index = 0  # 块索引
+
+    for entry_key, entry_value in data.items():
+        if entry_value.get('ball', 0) == -1:  # 如果 ball == -1
+            if current_chunk:  # 如果当前块有数据
+                # 将当前块保存为一个小 JSON 文件
+                output_file = os.path.join(output_dir, f'chunk_{chunk_index}.json')
+                with open(output_file, 'w', encoding='utf-8') as f_out:
+                    json.dump(current_chunk, f_out, ensure_ascii=False, indent=4)
+                print(f"已保存: {output_file}")
+
+                # 重置当前块
+                current_chunk = []
+                chunk_index += 1
+        else:
+            # 添加数据到当前块
+            current_chunk.append({entry_key: entry_value})
+
+    # 检查是否还有未保存的块
+    if current_chunk:
+        output_file = os.path.join(output_dir, f'chunk_{chunk_index}.json')
+        with open(output_file, 'w', encoding='utf-8') as f_out:
+            json.dump(current_chunk, f_out, ensure_ascii=False, indent=4)
+        print(f"已保存: {output_file}")
+    return os.listdir(output_dir)
 
 def normalize_keypoints(keypoints, bbox):
     x1, y1, x2, y2 = bbox
@@ -57,10 +101,11 @@ def transform_dict_extended(original_dict, fields_to_extract):
     result = {field: [] for field in fields_to_extract}
     result["frame_id"] = []
     # 遍历原始字典
-    for frame_id, data in original_dict.items():
+    for data in original_dict:
         # 提取指定字段的数据
+        frame_id = list(data)[0]
         for field in fields_to_extract:
-            field_data = data.get(field, [])
+            field_data = data[frame_id].get(field, [])
             result[field].append(field_data)
 
         # 添加 frame_id 信息
@@ -320,7 +365,7 @@ def hit_plus(state,intervals,human_action,human_kps,hand,key='upper',ball_states
 
     for start, end in intervals:
         overhead_count =  human_action[start:end + 1].count(2)
-        if overhead_count > 0.3*(end-start+1):
+        if overhead_count > 0.1*(end-start+1):
             serve_count = Counter(ball_states[start:end + 1])
             most_curve_element, _ = serve_count.most_common(1)[0]
             if most_curve_element == 'serve':
@@ -559,6 +604,8 @@ def plot_heatmap(frequency_matrix, title="Heatmap", cmap="viridis",output="heatm
 
 def compute_frequency_matrix(M, N, points, m, n):
     # Initialize the frequency matrix with zeros
+    # M = [] , N=[] , heights = M[i] width = N[j] for i  for j
+    #
     frequency_matrix = [[0 for _ in range(n)] for _ in range(m)]
     # Compute the size of each grid cell
     cell_height = M / m
@@ -586,7 +633,8 @@ def draw_human_heatmap(data,hit_time,output_video_folder,side='upper'):
         elif side == 'lower':
             human_hit_location.append(data['real_lower_human'][i])
     human_matrix = np.array(compute_frequency_matrix(M, N, human_hit_location, m, n))
-    plot_heatmap(human_matrix, title="Human", output=output_path)
+    return human_matrix
+    # plot_heatmap(human_matrix, title="Human", output=output_path)
 
 def draw_ball_heatmap(data,precise_landings,output_video_folder):
     M, N =  3500,1600
@@ -605,4 +653,5 @@ def draw_ball_heatmap(data,precise_landings,output_video_folder):
         else:
             ball_landing_location.append(data['real_ball'][i])
     ball_landing_matrix = np.array(compute_frequency_matrix(M, N, ball_landing_location, m, n))
-    plot_heatmap(ball_landing_matrix, title="Ball", output=output_path)
+    return ball_landing_matrix
+    # plot_heatmap(ball_landing_matrix, title="Ball", output=output_path)
