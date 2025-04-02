@@ -680,9 +680,9 @@ def draw_human_heatmap(data,hit_time,output_video_folder,side='upper'):
     output_path = os.path.join(output_video_folder, '{}_human_hit_heatmap.png'.format(side))
     # M, N =  3500,1600
     # m, n =  7,4
-    M,N = 1665,3506
-    m=[0,288,430,832,1244,1378,1665]
-    n=[0,566,1110,1748,2384,2934,3506]
+    M,N = 3506,1665
+    n=[0,288,430,832,1244,1378,1665]
+    m=[0,566,1110,1748,2384,2934,3506]
     human_hit_location =[]
     for i in hit_time:
         if side == 'upper':
@@ -691,13 +691,13 @@ def draw_human_heatmap(data,hit_time,output_video_folder,side='upper'):
             human_hit_location.append(data['real_lower_human'][i])
     # human_matrix = np.array(compute_frequency_matrix(M, N, human_hit_location, m, n))
     human_matrix = np.array(compute_frequency_matrix_unequal_partition(M, N, human_hit_location, m, n))
-    plot_heatmap(human_matrix, title="Human", output=output_path)
+    # plot_heatmap(human_matrix, title="Human", output=output_path)
     return human_matrix
 
 def draw_ball_heatmap(data,precise_landings,output_video_folder):
-    M,N = 1665,3506
-    m=[0,288,430,832,1244,1378,1665]
-    n=[0,566,1110,1748,2384,2934,3506]
+    M,N = 3506,1665
+    n=[0,288,430,832,1244,1378,1665]
+    m=[0,566,1110,1748,2384,2934,3506]
     output_path = os.path.join(output_video_folder, 'ball_heatmap.png')
     ball_landing_location =[]
     for i in precise_landings:
@@ -712,7 +712,7 @@ def draw_ball_heatmap(data,precise_landings,output_video_folder):
         else:
             ball_landing_location.append(data['real_ball'][i])
     ball_landing_matrix = np.array(compute_frequency_matrix_unequal_partition(M, N, ball_landing_location, m, n))
-    plot_heatmap(ball_landing_matrix, title="Ball", output=output_path)
+    # plot_heatmap(ball_landing_matrix, title="Ball", output=output_path)
     return ball_landing_matrix
 
 def upper_lower_ball_matrix(data,upper_hit_time,lower_hit_time,precise_landings):
