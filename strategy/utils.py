@@ -597,14 +597,14 @@ def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper
 
 
 def plot_heatmap(frequency_matrix, title="Heatmap", cmap="viridis",output="heatmap.png"):
-    plt.figure(figsize=(7, 12))
+    plt.figure(figsize=(16, 35))
     plt.imshow(frequency_matrix, cmap=cmap, aspect="auto", origin="upper", interpolation="nearest")
     # Add color bar
     # cbar = plt.colorbar()
     # cbar.set_label("Point Count")
     plt.title(title)
-    plt.xlabel("Grid Columns")
-    plt.ylabel("Grid Rows")
+    # plt.xlabel("Grid Columns")
+    # plt.ylabel("Grid Rows")
     plt.savefig(output)
     plt.close()
 
@@ -628,23 +628,76 @@ def compute_frequency_matrix(M, N, points, m, n):
                 frequency_matrix[row][col] += 1
     return frequency_matrix
 
+
+def compute_frequency_matrix_unequal_partition(M, N, points, m_boundaries, n_boundaries):
+    """
+    计算频率矩阵，支持不等分分割。
+
+    参数:
+    - M: 图像的高度
+    - N: 图像的宽度
+    - points: 点的坐标列表，格式为 [(x1, y1), (x2, y2), ...]
+    - m_boundaries: 高度方向的分割边界，例如 [0, 2, 3, 5, 10]
+    - n_boundaries: 宽度方向的分割边界，例如 [0, 1, 4, 7, 10]
+
+    返回:
+    - frequency_matrix: 频率矩阵，表示每个区域内的点数
+    """
+    # 获取高度和宽度方向的分割段数
+    m_segments = len(m_boundaries) - 1
+    n_segments = len(n_boundaries) - 1
+
+    # 初始化频率矩阵
+    frequency_matrix = [[0 for _ in range(n_segments)] for _ in range(m_segments)]
+
+    # 遍历所有点并计算其所属区域
+    for x, y in points:
+        # 检查点是否在图像范围内
+        if 0 <= x < N and 0 <= y < M:
+            # 找到点所属的高度区域（m方向）
+            row = None
+            for i in range(m_segments):
+                if m_boundaries[i] <= y < m_boundaries[i + 1]:
+                    row = i
+                    break
+
+            # 找到点所属的宽度区域（n方向）
+            col = None
+            for j in range(n_segments):
+                if n_boundaries[j] <= x < n_boundaries[j + 1]:
+                    col = j
+                    break
+
+            # 如果点成功分配到某个区域，则更新频率矩阵
+            if row is not None and col is not None:
+                frequency_matrix[row][col] += 1
+
+    return frequency_matrix
+
+
+# 示例用法
 def draw_human_heatmap(data,hit_time,output_video_folder,side='upper'):
     output_path = os.path.join(output_video_folder, '{}_human_hit_heatmap.png'.format(side))
-    M, N =  3500,1600
-    m, n =  7,4
+    # M, N =  3500,1600
+    # m, n =  7,4
+    M,N = 1665,3506
+    m=[0,288,430,832,1244,1378,1665]
+    n=[0,566,1110,1748,2384,2934,3506]
     human_hit_location =[]
     for i in hit_time:
         if side == 'upper':
             human_hit_location.append(data['real_upper_human'][i])
         elif side == 'lower':
             human_hit_location.append(data['real_lower_human'][i])
-    human_matrix = np.array(compute_frequency_matrix(M, N, human_hit_location, m, n))
+    # human_matrix = np.array(compute_frequency_matrix(M, N, human_hit_location, m, n))
+    human_matrix = np.array(compute_frequency_matrix_unequal_partition(M, N, human_hit_location, m, n))
+    plot_heatmap(human_matrix, title="Human", output=output_path)
     return human_matrix
-    # plot_heatmap(human_matrix, title="Human", output=output_path)
 
 def draw_ball_heatmap(data,precise_landings,output_video_folder):
-    M, N =  3500,1600
-    m, n =  35,16
+    M,N = 1665,3506
+    m=[0,288,430,832,1244,1378,1665]
+    n=[0,566,1110,1748,2384,2934,3506]
     output_path = os.path.join(output_video_folder, 'ball_heatmap.png')
     ball_landing_location =[]
     for i in precise_landings:
@@ -658,9 +711,9 @@ def draw_ball_heatmap(data,precise_landings,output_video_folder):
                 ball_landing_location.append([500,500])
         else:
             ball_landing_location.append(data['real_ball'][i])
-    ball_landing_matrix = np.array(compute_frequency_matrix(M, N, ball_landing_location, m, n))
+    ball_landing_matrix = np.array(compute_frequency_matrix_unequal_partition(M, N, ball_landing_location, m, n))
+    plot_heatmap(ball_landing_matrix, title="Ball", output=output_path)
     return ball_landing_matrix
-    # plot_heatmap(ball_landing_matrix, title="Ball", output=output_path)
 
 def upper_lower_ball_matrix(data,upper_hit_time,lower_hit_time,precise_landings):
     upper_hit_location,lower_hit_location =[],[]
