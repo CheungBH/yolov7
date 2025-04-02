@@ -5,8 +5,9 @@ from collections import Counter
 import cv2
 import matplotlib.pyplot as plt
 import os
-import numpy as np
 import json
+from PIL import Image, ImageDraw
+import numpy as np
 
 def split_json_by_ball(json_file, output_dir):
     """
@@ -361,8 +362,8 @@ def return_plus(states, box):
             updated_states[i] = 'ready'
     return updated_states
 
-def hit_plus(state,intervals,human_action,human_kps,hand,key='upper',ball_states=[],precise_landings=[]):
-
+def hit_plus(data,state,intervals,human_action,human_kps,hand,key='upper',ball_states=[],precise_landings=[]):
+    ball_location = data['real_ball']
     for start, end in intervals:
         overhead_count =  human_action[start:end + 1].count(2)
         if overhead_count > 0.1*(end-start+1):
@@ -378,15 +379,20 @@ def hit_plus(state,intervals,human_action,human_kps,hand,key='upper',ball_states
                 if not filtered_data:
                     valid_action = "not sure"
                 else:
-                    element_counts = Counter(filtered_data)
-                    most_common_element, _ = element_counts.most_common(1)[0]
-                    if most_common_element == 2:
-                        valid_action = "overhead"
-                    elif (most_common_element == hand and key == 'lower') or (
-                            most_common_element != hand and key == 'upper'):
-                        valid_action = "backhand"
+                    landing_time = next((num for num in precise_landings if start <= num <= end + 1), None)
+                    middle_line = data['middle_line'][landing_time]
+                    if middle_line-50 <= ball_location[landing_time][1] <= middle_line+50: # and human location
+                        valid_action = "dropshot"
                     else:
-                        valid_action = "forehand"
+                        element_counts = Counter(filtered_data)
+                        most_common_element, _ = element_counts.most_common(1)[0]
+                        if most_common_element == 2:
+                            valid_action = "overhead"
+                        elif (most_common_element == hand and key == 'lower') or (
+                                most_common_element != hand and key == 'upper'):
+                            valid_action = "backhand"
+                        else:
+                            valid_action = "forehand"
             else:
                 valid_action = "volley"
         state[start:end + 1] = [valid_action] * (end - start + 1)
@@ -655,3 +661,62 @@ def draw_ball_heatmap(data,precise_landings,output_video_folder):
     ball_landing_matrix = np.array(compute_frequency_matrix(M, N, ball_landing_location, m, n))
     return ball_landing_matrix
     # plot_heatmap(ball_landing_matrix, title="Ball", output=output_path)
+
+def upper_lower_ball_matrix(data,upper_hit_time,lower_hit_time,precise_landings):
+    upper_hit_location,lower_hit_location =[],[]
+    for i in upper_hit_time:
+        upper_hit_location.append(data['real_upper_human'][i])
+    for i in lower_hit_time:
+        lower_hit_location.append(data['real_lower_human'][i])
+
+    ball_landing_location =[]
+    for i in precise_landings:
+        if data['ball'][i] == [-1,-1]:
+            j = i - 1
+            while j >= 0 and data['ball'][j] == [-1, -1]:
+                j -= 1
+            if j >= 0:
+                ball_landing_location.append(data['real_ball'][j])
+            else:
+                ball_landing_location.append([500,500])
+        else:
+            ball_landing_location.append(data['real_ball'][i])
+    return upper_hit_location,lower_hit_location,ball_landing_location
+
+
+
+def draw_heatmap(image_path, points, output_path, box_size=10):
+    img = Image.open(image_path).convert("RGB")
+    img_width, img_height = img.size
+    heatmap = np.zeros((img_height, img_width), dtype=np.float32)
+    # 遍历点列表，增加对应位置的热力值
+    for x, y in points:
+        if 0 <= x < img_width and 0 <= y < img_height:
+            x_start = int((x // box_size) * box_size)
+            y_start = int((y // box_size) * box_size)
+            x_end = min(x_start + box_size, img_width)
+            y_end = min(y_start + box_size, img_height)
+            heatmap[y_start:y_end, x_start:x_end] += 1
+    heatmap = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min() + 1e-8)
+    overlay = Image.new("RGBA", img.size)
+    draw = ImageDraw.Draw(overlay)
+
+    for y in range(0, img_height, box_size):
+        for x in range(0, img_width, box_size):
+            # 获取当前小框的热力值
+            heat_value = heatmap[y, x]
+
+            # 根据热力值计算颜色 (R, G, B, A)，从蓝色到红色渐变
+            r = int(255 * heat_value)
+            g = int(255 * (1 - abs(heat_value - 0.5) * 2))
+            b = int(255 * (1 - heat_value))
+            alpha = int(128 * heat_value)  # 半透明效果
+
+            # 填充小框的颜色
+            draw.rectangle(
+                [x, y, x + box_size, y + box_size],
+                fill=(r, g, b, alpha)
+            )
+    result = Image.alpha_composite(img.convert("RGBA"), overlay)
+    result.save(output_path)
+

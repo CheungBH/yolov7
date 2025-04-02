@@ -135,7 +135,7 @@ class DataManagement:
     def get_humans_feet(self):
         upper_player_feet = [(self.players_kps["upper"][-1][45] + self.players_kps["upper"][-1][48])/2,
                              (self.players_kps["upper"][-1][46] + self.players_kps["upper"][-1][49])/2]
-        lower_player_feet = [(self.players_kps["lower"][-1][45] + self.players_kps["lower"][-1][47])/2,
+        lower_player_feet = [(self.players_kps["lower"][-1][45] + self.players_kps["lower"][-1][48])/2,
                              (self.players_kps["lower"][-1][46] + self.players_kps["lower"][-1][49])/2]
         feet = [upper_player_feet,lower_player_feet]
         # upper_player_box = self.players_boxes["upper"][-1]

@@ -180,8 +180,8 @@ def upper_lower_state(data, upper_hit, lower_hit, upper_hit_intervals, lower_hit
     upper_raw_state,lower_raw_state = generate_lists(len(upper_box),upper_hit,lower_hit)
     upper_state = return_plus(upper_raw_state,upper_box)
     lower_state = return_plus(lower_raw_state,lower_box)
-    upper_final_state = hit_plus(upper_state,upper_hit_intervals,upper_action,upper_kps,upper_hand,'upper',ball_states,precise_landings)
-    lower_final_state = hit_plus(lower_state,lower_hit_intervals,lower_action,lower_kps,lower_hand,'lower',ball_states,precise_landings)
+    upper_final_state = hit_plus(data,upper_state,upper_hit_intervals,upper_action,upper_kps,upper_hand,'upper',ball_states,precise_landings)
+    lower_final_state = hit_plus(data,lower_state,lower_hit_intervals,lower_action,lower_kps,lower_hand,'lower',ball_states,precise_landings)
     return upper_final_state,lower_final_state
 
 def change_direction(data,upper_state_list,lower_state_list):
@@ -331,9 +331,9 @@ def main(csv_file,video_file, output_video_folder, info_json):
         output_videdo_path = os.path.join(output_video_folder, 'out_{}/analysis_output.mp4'.format(start_frame_id))
         os.makedirs(output_path, exist_ok=True)
         out = cv2.VideoWriter(output_videdo_path, fourcc, fps, (width, height))
-        ball_matrix.append(draw_ball_heatmap(data, precise_landings,output_video_folder))
-        upper_human_matrix.append(draw_human_heatmap(data,upper_hit_time, output_video_folder,'upper'))
-        lower_human_matrix.append(draw_human_heatmap(data, lower_hit_time, output_video_folder,'lower'))
+        # ball_matrix.append(draw_ball_heatmap(data, precise_landings,output_video_folder))
+        # upper_human_matrix.append(draw_human_heatmap(data,upper_hit_time, output_video_folder,'upper'))
+        # lower_human_matrix.append(draw_human_heatmap(data, lower_hit_time, output_video_folder,'lower'))
         output_json_path = os.path.join(output_video_folder, 'out_{}/analysis_output.json'.format(start_frame_id))
 
         cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame_id)
@@ -371,9 +371,22 @@ def main(csv_file,video_file, output_video_folder, info_json):
             frame_id += 1
         write_json(output_json_path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
                    upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,upper_hit_time,lower_hit_time, shot_degree, precise_landings)
-    plot_heatmap(sum(ball_matrix))
-    plot_heatmap(sum(upper_human_matrix))
-    plot_heatmap(sum(lower_human_matrix))
+        image_path = r"C:\Users\Public\zcj\yolov7\yolov7main\strategy\court\court_reference.png"
+        upper_human_points,lower_human_points,ball_points = upper_lower_ball_matrix(data, upper_hit_time,lower_hit_time,precise_landings)
+        upper_human_matrix.extend(upper_human_points)
+        lower_human_matrix.extend(lower_human_points)
+        ball_matrix.extend(ball_points)
+        draw_heatmap(image_path, upper_human_points, box_size=100,output_path = os.path.join(output_path, 'upper_human_heatmap.png'))
+        draw_heatmap(image_path, lower_human_points, box_size=100,output_path = os.path.join(output_path, 'lower_human_heatmap.png'))
+        draw_heatmap(image_path, ball_points, box_size=100,output_path = os.path.join(output_path, 'ball_heatmap.png'))
+    draw_heatmap(image_path, upper_human_matrix, box_size=100,
+                 output_path=os.path.join(output_video_folder, 'upper_human_heatmap.png'))
+    draw_heatmap(image_path, lower_human_matrix, box_size=100,
+                 output_path=os.path.join(output_video_folder, 'lower_human_heatmap.png'))
+    draw_heatmap(image_path, ball_matrix, box_size=100, output_path=os.path.join(output_video_folder, 'ball_heatmap.png'))
+    # plot_heatmap(sum(ball_matrix))
+    # plot_heatmap(sum(upper_human_matrix))
+    # plot_heatmap(sum(lower_human_matrix))
     cap.release()
     out.release()
     cv2.destroyAllWindows()

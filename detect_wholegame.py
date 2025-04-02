@@ -453,10 +453,10 @@ def detect():
             data_assets["court"] = -1
             data_assets["ball_prediction"] = -1
             strategy_assets = data_manger.get_strategy_assets_dummy(idx)
+            tv_list.append(cv2.resize(top_view.visualize_dummy(), (top_view_w, top_view_h)))
+
 
         frame_list.append(im0s)
-        # tv_list.append()
-        tv_list.append(cv2.resize(top_view.visualize_dummy(), (top_view_w, top_view_h)))
 
         if idx >= adjacent_frame:
             display_img = frame_list[0]
