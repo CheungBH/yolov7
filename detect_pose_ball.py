@@ -411,7 +411,7 @@ def detect():
         tv_list.append(cv2.resize(top_view_img, (top_view_w, top_view_h)))
         frame_list.append(im0)
 
-        if idx >= adjacent_frame:
+        if idx >= adjacent_frame*2+1:
             display_img = frame_list[0]
             topview_img = tv_list[0]
             if not opt.no_show:
@@ -459,7 +459,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pose_weights', nargs='+', type=str, default="weights/latest_assets/yolopose_4lr.pt", help='model.pt path(s)')
     parser.add_argument('--ball_weights', nargs='+', type=str, default="weights/latest_assets/ball.pt", help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default=r"D:\tmp\3.26\candidates_output_0327\20231011_lxr_yt_12\20231011_lxr_yt_12.mp4", help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default=r"D:\tmp\3.27\4-knn-serve\20231011_xzy_yt_10.mp4", help='source')  # file/folder, 0 for webcam
     parser.add_argument("--output_folder", default="output")
     # parser.add_argument("--output_csv_file", default="2s.csv")
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')

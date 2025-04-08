@@ -30,6 +30,7 @@ import shutil
 from utils.datasets import letterbox
 
 top_view_h, top_view_w = 1000, 480
+resized_height, resized_width, cropped_width = 720, 1280, 720  # Resize dimensions for the patches
 
 class Queue:
     def __init__(self, max_length, h, w, no_exist_with_prev=False):
@@ -254,22 +255,20 @@ def detect():
         ball_center = []
 
         # Inference
+        t1 = time_synchronized()
+        img = torch.from_numpy(img).to(device)
+        img = img.half() if half else img.float()  # uint8 to fp16/32
+        img /= 255.0  # 0 - 255 to 0.0 - 1.0
+        if img.ndimension() == 3:
+            img = img.unsqueeze(0)
         if use_saved_box:
             t1 = time_synchronized()
             ball_pred = [torch.tensor(box_assets[str(idx)]["ball"])]
             pose_pred = [torch.tensor(box_assets[str(idx)]["person"])]
             t2 = time_synchronized()
             t3 = time_synchronized()
-
         else:
-            t1 = time_synchronized()
-            img = torch.from_numpy(img).to(device)
-            img = img.half() if half else img.float()  # uint8 to fp16/32
-            img /= 255.0  # 0 - 255 to 0.0 - 1.0
-            if img.ndimension() == 3:
-                img = img.unsqueeze(0)
-
-            patches, tls = patch_crop(im0s, 720, 852)
+            patches, tls = patch_crop(im0s, resized_height, cropped_width=cropped_width)
             batch_imgs = None
             for patch in patches:
                 patch = letterbox(patch, new_shape=imgsz, stride=stride)[0]  # resize
@@ -340,7 +339,7 @@ def detect():
                             pose_plot_one_box(xyxy, im0, label=label, color=color(c, True), line_thickness=1,
                                               kpt_label=True, kpts=kpts, steps=3, orig_shape=im0.shape[:2])
                     else:
-                        # scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                        scale_coords((resized_height, resized_width), det[:, :4], im0.shape).round()
                         # Print results
                         for c in det[:, -1].unique():
                             n = (det[:, -1] == c).sum()  # detections per class
@@ -483,7 +482,7 @@ def detect():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pose_weights', nargs='+', type=str, default="weights/latest_assets/yolopose_4lr.pt", help='model.pt path(s)')
-    parser.add_argument('--ball_weights', nargs='+', type=str, default="weights/latest_assets/patch_ball.pt", help='model.pt path(s)')
+    parser.add_argument('--ball_weights', nargs='+', type=str, default="weights/latest_assets/patch_ball_tiny.pt", help='model.pt path(s)')
     parser.add_argument('--source', type=str, default=r"D:\tmp\3.27\4-knn-serve\20231011_xzy_yt_10.mp4", help='source')  # file/folder, 0 for webcam
     parser.add_argument("--output_folder", default="output")
     # parser.add_argument("--output_csv_file", default="2s.csv")

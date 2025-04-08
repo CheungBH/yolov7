@@ -16,6 +16,9 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 
 import torch
 
+resized_height, resized_width, cropped_width = 720, 1280, 720  # Resize dimensions for the patches
+
+
 def remove_boundary_boxes(bboxes, image_size, distance=20):
     """
     Remove bounding boxes that are close to the image boundaries.
@@ -151,7 +154,7 @@ def detect(save_img=False):
 
     t0 = time.time()
     for path, img, im0s, vid_cap in dataset:
-        patches, tls = patch_crop(im0s, 720, 852)
+        patches, tls = patch_crop(im0s, resized_height, cropped_width=cropped_width)
         batch_imgs = None
 
         for patch in patches:
@@ -203,7 +206,7 @@ def detect(save_img=False):
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             if len(det):
                 # Rescale boxes from img_size to im0 size
-                # det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                det[:, :4] = scale_coords((resized_height, resized_width), det[:, :4], im0.shape).round()
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -260,7 +263,7 @@ def detect(save_img=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='inference/images', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default=r'D:\tmp\3.27\4-knn-serve\20231011_xzy_yt_10.mp4', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')

@@ -3,7 +3,7 @@ import cv2
 import subprocess
 import shutil
 
-resize_ratio = 2
+resize_ratio = 1
 
 def click_points(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
@@ -14,9 +14,9 @@ def click_points(event, x, y, flags, param):
 def main():
     # 1. 读取文件夹中的所有 .mp4 文件
     # folder_path = r"D:\Ai_tennis\yolov7_main\test_video\Grass"
-    folder_path = r"D:\tmp\3.26\3.24\candidates"
-    output_folder = r"D:\tmp\3.27\candidates_output_refineColor_newlanding"
-    use_saved_box = True
+    folder_path = r"D:\Tennis\datasets\raw_videos\general\msc2023_clip\clip"
+    output_folder = r"D:\tmp\4.8\results\msc2023_clip"
+    use_saved_box = False
 
     mp4_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
     masks = []
@@ -82,12 +82,12 @@ def main():
         #        f' --output_csv_file {"test_csv/" + os.path.join(file.split(".")[0]) + ".csv"} '
         #        f' --project runs/detect --name newcut'
         #        f' --topview_path {"top_view/" + os.path.join(file.split(".")[0]) + "_2.mp4"}')
-        cmd = 'python detect_pose_ball.py --source {} --output_folder {} --masks "{}"'.format(
+        cmd = 'python detect_pose_ballpatch.py --source {} --output_folder {} --masks "{}"'.format(
             os.path.join(folder_path, file), os.path.join(output_folder, video_name), mask_str)
         if use_saved_box:
             cmd += ' --use_saved_box'
         print("processing video {}: {}/{}".format(file, v_idx+1, total_videos))
-        # print(cmd)
+        print(cmd)
         subprocess.run(cmd, shell=True)
 
 
