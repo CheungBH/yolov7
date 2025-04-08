@@ -6,8 +6,8 @@ import ast
 import os
 import pandas as pd
 
-int_to_status = {-1: "Pending", 0: "flying", 1: "landing"}
-status_colors = {"Pending": (255, 0, 0), "flying": (0, 255, 0), "landing": (0, 0, 255)}
+int_to_status = {-1: "Pending", 0: "flying", 1: "landing", 2: "serve"}
+status_colors = {"Pending": (255, 0, 0), "flying": (0, 255, 0), "landing": (0, 0, 255), "serve": (255, 255, 0)}
 
 
 def find_csv_video_input_paths(input_csv_folder, input_video_folder):
@@ -18,7 +18,8 @@ def find_csv_video_input_paths(input_csv_folder, input_video_folder):
             if file.endswith('.csv'):
                 csv_file_path = os.path.join(root, file)
                 # dir = root.split(os.sep)[-1]
-                video_file_path = os.path.join(input_video_folder, file.replace('.csv', '.mp4'))
+
+                video_file_path = os.path.join(root.replace(input_csv_folder, input_video_folder), file.replace('.csv', '.mp4'))
 
                 if os.path.exists(video_file_path):
                     # print(csv_file_path)
@@ -44,7 +45,7 @@ def read_csv_file(csv_file):
 
 
 
-def main(csv_path, video_path, output_txt_folder):
+def main(csv_path, video_path, txt_path):
     ball_locations, frame_ls, curve_predictions = read_csv_file(csv_path)
     location_dict = dict(zip(frame_ls, ball_locations))
 
@@ -129,24 +130,29 @@ def main(csv_path, video_path, output_txt_folder):
     # frame_width, frame_height =1665, 3506
 
     csv_file_name = csv_path.split('\\')[-1]
-    txt_file_name = csv_file_name.replace('.csv', '.txt')
-    with open(os.path.join(output_txt_folder, txt_file_name), "w") as file:
+    # txt_file_name = csv_file_name.replace('.csv', '.txt')
+    with open(txt_path, "w") as file:
         for idx, point in location_dict.items():
             if -1 in point:
                 file.write("{}, {}, {}\n".format(point[0], point[1], t.get(idx, "")))
             else:
                 file.write("{}, {}, {}\n".format(point[0]/frame_width, point[1]/frame_height, t.get(idx, "")))
 
-    print(f"Coordinates saved to {os.path.join(output_txt_folder, txt_file_name)} \n ")
+    print(f"Coordinates saved to {txt_path} \n ")
 
 
 if __name__ == '__main__':
-    input_video_folder = "/Volumes/U357/tennis_landing/video"
-    input_csv_folder = "/Volumes/U357/tennis_landing/csv"
-    output_txt_folder = "/Volumes/U357/tennis_landing/result"
+    input_root = "/Volumes/U357/tennis_landing"
+    input_video_folder = os.path.join(input_root, "videos")
+    input_csv_folder = os.path.join(input_root, "csv")
+    output_txt_folder = os.path.join(input_root, "txt")
     if not os.path.exists(output_txt_folder):
         os.makedirs(output_txt_folder)
 
     csv_paths, video_paths = find_csv_video_input_paths(input_csv_folder, input_video_folder)
     for csv_path, video_path in zip(csv_paths, video_paths):
-        main(csv_path, video_path, output_txt_folder)
+        txt_path = os.path.join(output_txt_folder, os.path.basename(csv_path).replace('.csv', '.txt'))
+        if os.path.exists(txt_path):
+            print(f"txt file already exists: {txt_path}")
+            continue
+        main(csv_path, video_path, txt_path)

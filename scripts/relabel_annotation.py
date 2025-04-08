@@ -6,8 +6,8 @@ import ast
 import os
 import pandas as pd
 
-int_to_status = {-1: "Pending", 0: "flying", 1: "landing"}
-status_colors = {"Pending": (255, 0, 0), "flying": (0, 255, 0), "landing": (0, 0, 255)}
+int_to_status = {-1: "Pending", 0: "flying", 1: "landing", 2: "serve"}
+status_colors = {"Pending": (255, 0, 0), "flying": (0, 255, 0), "landing": (0, 0, 255), "serve": (255, 255, 0)}
 
 
 def find_csv_video_input_paths(input_csv_folder, input_video_folder):
@@ -146,9 +146,9 @@ def main(csv_path, video_path, output_txt_folder):
 
 
 if __name__ == '__main__':
-    input_video_folder = "/Volumes/U357/tennis_landing/video"
-    input_csv_folder = "/Volumes/U357/tennis_landing/result"
-    output_txt_folder = "/Volumes/U357/tennis_landing/result2"
+    input_video_folder = "/Users/cheungbh/Downloads/serve/video"
+    input_csv_folder = "/Users/cheungbh/Downloads/serve/txt"
+    output_txt_folder = "/Users/cheungbh/Downloads/serve/result2"
     if not os.path.exists(output_txt_folder):
         os.makedirs(output_txt_folder)
 
