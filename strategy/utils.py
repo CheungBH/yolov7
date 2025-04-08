@@ -8,6 +8,7 @@ from matplotlib.animation import FuncAnimation
 import os
 import json
 from PIL import Image, ImageDraw
+from PIL import Image
 import numpy as np
 
 def split_json_by_ball(json_file, output_dir):
@@ -344,15 +345,20 @@ def generate_another_list(intervals_upper,intervals_lower):
     list1, list2 = [], []
     intervals1 = intervals_upper.copy()
     intervals2 = intervals_lower.copy()
+    if intervals1 != [] and intervals2 != []:
+        if min(intervals1) < min(intervals2):
+            intervals2.insert(0,0)
+        else:
+            intervals1.insert(0,0)
     for i in range(9999):
         if intervals1==[] or intervals2 ==[]:
             return list1,list2
         else:
             if min(intervals1) < min(intervals2):
-                list1.append([min(intervals1),min(intervals2)])
+                list2.append([min(intervals1),min(intervals2)])
                 intervals1.pop(0)
             else:
-                list2.append([min(intervals2),min(intervals1)])
+                list1.append([min(intervals2),min(intervals1)])
                 intervals2.pop(0)
 
 def return_plus(states, box):
@@ -396,7 +402,7 @@ def hit_plus(data,state,intervals,landings,human_action,human_kps,hand,key='uppe
             else:
                 valid_action = "overhead"
         else:
-            volley_landing = find_interval(end,landings)
+            volley_landing = find_interval(start,landings)
             landing_time = next((num for num in precise_landings if volley_landing[0] <= num <= volley_landing[1]), None)
             if not any(volley_landing[0] <= num <= volley_landing[1] for num in precise_landings) or volley_landing ==[0,0] :
                 valid_action = "volley"
@@ -576,7 +582,88 @@ def draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_land
         arrow_color = (255, 0, 0) if state == 0 else (0, 0, 255)
         cv2.arrowedLine(frame, end_point, start_point, arrow_color, 3)
 
+def draw_real_ball_boxes_arrows(image_path, data, upper_hit_times,lower_hit_times, precise_landings,output_path):
+    hit_location = {}
+    ball_real_position = []
+    intervals1 = upper_hit_times.copy()
+    intervals2 = lower_hit_times.copy()
+    for landing in precise_landings:
+        ball_real_position.append(data['real_ball'][landing])
+    if intervals1 != [] and intervals2 != []:
+        if min(intervals1) < min(intervals2):
+            intervals2.insert(0,0)
+        else:
+            intervals1.insert(0,0)
+    else:
+        if intervals1 == []:
+            hit_location[0] = data['real_upper_human'][0]
+        else:
+            hit_location[0] = data['real_lower_human'][0]
+    i=-1
+    if data['real_ball'][i] ==[-1,-1]:
+        j = i-1
+        while data['real_ball'][j] == [-1, -1]:
+            j -= 1
+        last_ball = data['real_ball'][j]
+    else:
+        last_ball = data['real_ball'][i]
+    for upper_hit_time in intervals1:
+        hit_location[upper_hit_time] = data['real_upper_human'][upper_hit_time]
+    for lower_hit_time in intervals2:
+        hit_location[lower_hit_time] = data['real_lower_human'][lower_hit_time]
+    annotate_image_with_arrows(image_path,hit_location,last_ball,ball_real_position,output_path)
 
+
+def annotate_image_with_arrows(image_path, data,last_ball,ball_real_position, output_path):
+    """
+    在指定图像上标注坐标点、绘制箭头，并在 [50, 50] 位置画红叉，最后保存图像。
+
+    参数：
+        image_path (str): 输入图像的路径。
+        data (dict): 包含坐标点的字典，格式为 {key: [x, y]}。
+        output_path (str): 输出图像的保存路径。
+    """
+    # 加载图像
+    image = Image.open(image_path)
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.imshow(image)
+
+    # 获取所有键，并按大小排序
+    sorted_keys = sorted(data.keys())
+
+    # 绘制箭头和标注点
+    x2 = []
+    for idx,i in enumerate(range(len(sorted_keys) - 1)):
+        key1 = sorted_keys[i]
+        key2 = sorted_keys[i + 1]
+        x1, y1 = data[key1]
+        x2, y2 = data[key2]
+
+        # 绘制箭头
+        ax.annotate("", xy=(x2, y2), xytext=(x1, y1),
+                    arrowprops=dict(arrowstyle="->", color="red", lw=2))
+
+        # 标注点
+        ax.plot(x1, y1, 'o', color='blue', markersize=8)  # 起始点
+        ax.text(x1, y1, str(idx), color='white', fontsize=10, ha='right')  # 标注键值
+
+        ax.plot(x2, y2, 'o', color='blue', markersize=8)  # 目标点
+        # ax.text(x2, y2, str(idx), color='white', fontsize=10, ha='right')  # 标注键值
+    if x2!=[]:
+        ax.annotate("", xy=(int(last_ball[0]), int(last_ball[-1])), xytext=(x2, y2),
+                        arrowprops=dict(arrowstyle="->", color="red", lw=2))
+    else:
+        ax.annotate("", xy=(int(last_ball[0]), int(last_ball[-1])), xytext=(int(data[0][0]), int(data[0][-1])),
+                        arrowprops=dict(arrowstyle="->", color="red", lw=2))
+
+    # 标注 [50, 50] 红叉
+    for x,y in ball_real_position:
+        ax.plot(int(x), int(y), 'x', color='red', markersize=12, markeredgewidth=2)
+
+    # 保存图像
+    plt.axis('off')  # 隐藏坐标轴
+    plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
+    plt.close()
 def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper_hit_time,lower_hit_time,hit_time, fps):
     colors_dict = {
         "none": (0, 0, 0),
@@ -620,6 +707,9 @@ def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper
 
 
 def plot_heatmap(frequency_matrix, title="Heatmap", cmap="viridis",output="heatmap.png"):
+    M,N = 3506,1665
+    n=[0,288,430,832,1244,1378,1665]
+    m=[0,566,1110,1748,2384,2934,3506]
     plt.figure(figsize=(16, 35))
     plt.imshow(frequency_matrix, cmap=cmap, aspect="auto", origin="upper", interpolation="nearest")
     # Add color bar
@@ -628,6 +718,40 @@ def plot_heatmap(frequency_matrix, title="Heatmap", cmap="viridis",output="heatm
     plt.title(title)
     # plt.xlabel("Grid Columns")
     # plt.ylabel("Grid Rows")
+    plt.savefig(output)
+    plt.close()
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+def plot_heatmap_with_gaps(matrix, title="Heatmap", cmap="viridis",output="heatmap.png"):
+    M,N = 3506,1665
+    n=[0,288,430,832,1244,1378,1665]
+    m=[0,566,1110,1748,2384,2934,3506]
+    expanded_matrix = np.zeros((M, N))
+    for i in range(len(m) - 1):
+        for j in range(len(n) - 1):
+            # 获取当前区块的值
+            value = matrix[i, j]
+            # 将该值填充到对应的矩形区域
+            expanded_matrix[m[i]:m[i + 1], n[j]:n[j + 1]] = value
+
+    # 绘制热力图
+    plt.figure(figsize=(10, 8))
+    plt.imshow(expanded_matrix, cmap="viridis", aspect="auto", origin="upper",
+               extent=[0, N, M, 0])  # 设置范围和方向
+    plt.colorbar(label="Value")  # 添加颜色条
+
+    # 绘制白线分割
+    for y in m:  # 水平白线
+        plt.hlines(y, xmin=0, xmax=N, colors="white", linewidths=1.5)
+    for x in n:  # 垂直白线
+        plt.vlines(x, ymin=0, ymax=M, colors="white", linewidths=1.5)
+
+    # 图像标题和标签
+    plt.title(title)
     plt.savefig(output)
     plt.close()
 
@@ -812,7 +936,7 @@ def draw_timeline(frame_info, speed_info,fps,save_path):
     # 绘制每一行时间轴
     row_heights = {}  # 存储每行的高度
     for row, frames in rows.items():
-        y = -row * 2  # 每行高度间隔为 2
+        y = -row * 4  # 每行高度间隔为 2
         row_heights[row] = y
 
         # 绘制时间轴
@@ -841,13 +965,13 @@ def draw_timeline(frame_info, speed_info,fps,save_path):
             # 格式化为两位数
             time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
 
-            ax.text(x, y -0.5,time_str , color=color, fontsize=10, ha='center')
+            ax.text(x, y -1,time_str , color=color, fontsize=8, ha='center')
             ax.scatter(x, y, color=color, s=100, zorder=5)
             ax.text(x, y + 0.5, text, color=color, fontsize=10, ha='center')
 
             # 在时间轴下方标注速度信息
             speed_text = f"max: {speed_data['max_speed']:.2f}\navg: {speed_data['average_speed']:.2f}"
-            ax.text(x, y - 1, speed_text, color='blue', fontsize=8, ha='center')
+            ax.text(x, y - 2, speed_text, color='blue', fontsize=8, ha='center')
 
     # 设置时间轴范围
     min_frame = min(frame_info, key=lambda x: x[0])[0]

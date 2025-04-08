@@ -372,16 +372,18 @@ def main(csv_file,video_file, output_video_folder, info_json):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
             frame_id += 1
-        events.append([frame_id, game_winner])
+        image_path = r"C:\Users\Public\zcj\yolov7\yolov7main\strategy\court\court_reference.png"
+        draw_real_ball_boxes_arrows(image_path, data, upper_hit_time,lower_hit_time, precise_landings,output_path=os.path.join(output_path,'review.jpg'))
+        events.append([frame_id+start_frame_id, game_winner])
         flattened_list = [item for sublist in ball_speed_list for item in sublist]
-        speeds[frame_id] = {'average_speed': (sum(flattened_list) / len(
+        speeds[frame_id+start_frame_id] = {'average_speed': (sum(flattened_list) / len(
             flattened_list)) * fps / 100 * 3.6 if len(flattened_list) != 0 else 0,
                  'max_speed': max(flattened_list) * fps / 100 * 3.6 if len(
                      flattened_list) != 0 else 0}
         draw_timeline(events, speeds,fps,time_line_path)
         write_json(output_json_path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
                    upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,upper_hit_time,lower_hit_time, shot_degree, precise_landings)
-        image_path = r"C:\Users\Public\zcj\yolov7\yolov7main\strategy\court\court_reference.png"
+
         # plot_heatmap(sum(ball_matrix))
         # plot_heatmap(sum(upper_human_matrix))
         # plot_heatmap(sum(lower_human_matrix))
@@ -400,9 +402,9 @@ def main(csv_file,video_file, output_video_folder, info_json):
     # plot_heatmap(sum(ball_matrix))
     # plot_heatmap(sum(upper_human_matrix))
     # plot_heatmap(sum(lower_human_matrix))
-    plot_heatmap(sum(ball_matrix), title="Ball", output=os.path.join(output_video_folder, 'ball_human_hit_heatmap.png'))
-    plot_heatmap(sum(upper_human_matrix), title="Human", output=os.path.join(output_video_folder, 'upper_human_hit_heatmap.png'))
-    plot_heatmap(sum(lower_human_matrix), title="Human", output=os.path.join(output_video_folder, 'lower_human_hit_heatmap.png'))
+    plot_heatmap_with_gaps(sum(ball_matrix), title="Ball", output=os.path.join(output_video_folder, 'ball_human_hit_heatmap.png'))
+    plot_heatmap_with_gaps(sum(upper_human_matrix), title="Human", output=os.path.join(output_video_folder, 'upper_human_hit_heatmap.png'))
+    plot_heatmap_with_gaps(sum(lower_human_matrix), title="Human", output=os.path.join(output_video_folder, 'lower_human_hit_heatmap.png'))
 
 
 
@@ -413,9 +415,9 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
 if __name__ == "__main__":
 
-    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\strategy\test\20231011_kh_yt_1\20231011_kh_yt_1_filter.json"
-    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\strategy\test\20231011_kh_yt_1\20231011_kh_yt_1.mp4"
-    output_video_folder = 'output/87'
+    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\game1\game1_filter.json"
+    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\game1\game1.mp4"
+    output_video_folder = 'output/88'
     info_json = r"C:\Users\Public\zcj\yolov7\yolov7main\output\top100_97\info.json"
     # input_json_file = "output/kh_1/20231011_kh_yt_2_filter.json"
     main(input_json_file,input_video_file, output_video_folder,info_json)
