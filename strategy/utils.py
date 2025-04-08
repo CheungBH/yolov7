@@ -797,7 +797,7 @@ def draw_heatmap(image_path, points, output_path, box_size=10):
     result.save(output_path)
 
 
-def draw_timeline(frame_info, speed_info,fps):
+def draw_timeline(frame_info, speed_info,fps,save_path):
     # 创建画布
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -866,5 +866,8 @@ def draw_timeline(frame_info, speed_info,fps):
     # 添加标题
     plt.title("Multi-Line Time Axis with Speed Annotations")
 
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+
     # 显示图像
-    plt.show()
+    # plt.show()
+    plt.close()

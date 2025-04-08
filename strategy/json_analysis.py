@@ -337,6 +337,7 @@ def main(csv_file,video_file, output_video_folder, info_json):
         upper_human_matrix.append(draw_human_heatmap(data,upper_hit_time, output_path,'upper'))
         lower_human_matrix.append(draw_human_heatmap(data, lower_hit_time, output_path,'lower'))
         output_json_path = os.path.join(output_path, 'analysis_output.json'.format(start_frame_id))
+        time_line_path = os.path.join(output_video_folder, 'timeline.jpg')
 
         cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame_id)
         while cap.isOpened():
@@ -377,7 +378,7 @@ def main(csv_file,video_file, output_video_folder, info_json):
             flattened_list)) * fps / 100 * 3.6 if len(flattened_list) != 0 else 0,
                  'max_speed': max(flattened_list) * fps / 100 * 3.6 if len(
                      flattened_list) != 0 else 0}
-        draw_timeline(events, speeds,fps)
+        draw_timeline(events, speeds,fps,time_line_path)
         write_json(output_json_path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
                    upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,upper_hit_time,lower_hit_time, shot_degree, precise_landings)
         image_path = r"C:\Users\Public\zcj\yolov7\yolov7main\strategy\court\court_reference.png"
