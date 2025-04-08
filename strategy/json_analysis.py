@@ -78,7 +78,7 @@ def get_hit_times(data,rally_change_intervals):
             hit_list = find_and_merge_non_three_intervals(hit_whole_list, begin)
             if hit_list != []:
                 upper_hit_intervals.append(hit_list)
-                upper_hit_time.append(int(sum(hit_list)/2)) # kps + 0.7 interval
+                upper_hit_time.append(int(hit_list[1]*3/4+hit_list[0]/4)) # kps + 0.7 interval
         else:
             hit_whole_list = lower_action_list[begin:end]
             hit_list = find_and_merge_non_three_intervals(hit_whole_list,begin)
@@ -134,7 +134,6 @@ def precise_landing(data,rally_change_intervals):
 def finish_analysis(data,serve_side,precise_landings):
     serve_list = ['upper', 'lower']
     #court = [[290, 560], [1380, 2930]]# double
-    #court = [[424,560],[1240,2930]]
     upper_court = [[424,560],[1240,1745]]
     lower_court = [[424,1745],[1240,2930]]
     if not precise_landings:
@@ -180,8 +179,9 @@ def upper_lower_state(data, upper_hit, lower_hit, upper_hit_intervals, lower_hit
     upper_raw_state,lower_raw_state = generate_lists(len(upper_box),upper_hit,lower_hit)
     upper_state = return_plus(upper_raw_state,upper_box)
     lower_state = return_plus(lower_raw_state,lower_box)
-    upper_final_state = hit_plus(data,upper_state,upper_hit_intervals,upper_action,upper_kps,upper_hand,'upper',ball_states,precise_landings)
-    lower_final_state = hit_plus(data,lower_state,lower_hit_intervals,lower_action,lower_kps,lower_hand,'lower',ball_states,precise_landings)
+    upper_ball_landing, lower_ball_landing = generate_another_list(upper_hit,lower_hit)
+    upper_final_state = hit_plus(data,upper_state,upper_hit_intervals,upper_ball_landing,upper_action,upper_kps,upper_hand,'upper',ball_states,precise_landings)
+    lower_final_state = hit_plus(data,lower_state,lower_hit_intervals,lower_ball_landing,lower_action,lower_kps,lower_hand,'lower',ball_states,precise_landings)
     return upper_final_state,lower_final_state
 
 def change_direction(data,upper_state_list,lower_state_list):
@@ -300,11 +300,13 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
     cap, fps, width, height = initialize_video_writer(video_file, output_video_folder)
     video_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    fps = round(cap.get(cv2.CAP_PROP_FPS))
     pixel2cm_ratio = fps / 100
     ball_matrix = []
     upper_human_matrix = []
     lower_human_matrix = []
+    events = []
+    speeds = {}
     for key,data in data_dict.items():
         total_frame = min(video_frame,len(data['frame_id']))
         rally_change_list, rally_change_intervals = process_rally_changes(data)
@@ -369,6 +371,13 @@ def main(csv_file,video_file, output_video_folder, info_json):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
             frame_id += 1
+        events.append([frame_id, game_winner])
+        flattened_list = [item for sublist in ball_speed_list for item in sublist]
+        speeds[frame_id] = {'average_speed': (sum(flattened_list) / len(
+            flattened_list)) * fps / 100 * 3.6 if len(flattened_list) != 0 else 0,
+                 'max_speed': max(flattened_list) * fps / 100 * 3.6 if len(
+                     flattened_list) != 0 else 0}
+        draw_timeline(events, speeds,fps)
         write_json(output_json_path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
                    upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,upper_hit_time,lower_hit_time, shot_degree, precise_landings)
         image_path = r"C:\Users\Public\zcj\yolov7\yolov7main\strategy\court\court_reference.png"
@@ -393,6 +402,9 @@ def main(csv_file,video_file, output_video_folder, info_json):
     plot_heatmap(sum(ball_matrix), title="Ball", output=os.path.join(output_video_folder, 'ball_human_hit_heatmap.png'))
     plot_heatmap(sum(upper_human_matrix), title="Human", output=os.path.join(output_video_folder, 'upper_human_hit_heatmap.png'))
     plot_heatmap(sum(lower_human_matrix), title="Human", output=os.path.join(output_video_folder, 'lower_human_hit_heatmap.png'))
+
+
+
     cap.release()
     out.release()
     cv2.destroyAllWindows()
@@ -400,9 +412,9 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
 if __name__ == "__main__":
 
-    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\game1\game1_filter.json"
-    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\test_video\game1\game1.mp4"
-    output_video_folder = 'output/86'
+    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\strategy\test\20231011_kh_yt_1\20231011_kh_yt_1_filter.json"
+    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\strategy\test\20231011_kh_yt_1\20231011_kh_yt_1.mp4"
+    output_video_folder = 'output/87'
     info_json = r"C:\Users\Public\zcj\yolov7\yolov7main\output\top100_97\info.json"
     # input_json_file = "output/kh_1/20231011_kh_yt_2_filter.json"
     main(input_json_file,input_video_file, output_video_folder,info_json)

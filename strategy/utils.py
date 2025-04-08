@@ -4,6 +4,7 @@ import math
 from collections import Counter
 import cv2
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 import os
 import json
 from PIL import Image, ImageDraw
@@ -339,6 +340,21 @@ def generate_lists_better(length, intervals1, intervals2):
 
     return list1, list2
 
+def generate_another_list(intervals_upper,intervals_lower):
+    list1, list2 = [], []
+    intervals1 = intervals_upper.copy()
+    intervals2 = intervals_lower.copy()
+    for i in range(9999):
+        if intervals1==[] or intervals2 ==[]:
+            return list1,list2
+        else:
+            if min(intervals1) < min(intervals2):
+                list1.append([min(intervals1),min(intervals2)])
+                intervals1.pop(0)
+            else:
+                list2.append([min(intervals2),min(intervals1)])
+                intervals2.pop(0)
+
 def return_plus(states, box):
     updated_states = states.copy()
     approach_intervals = []
@@ -362,7 +378,13 @@ def return_plus(states, box):
             updated_states[i] = 'ready'
     return updated_states
 
-def hit_plus(data,state,intervals,human_action,human_kps,hand,key='upper',ball_states=[],precise_landings=[]):
+def find_interval(number, intervals):
+    for interval in intervals:
+        if interval[0] <= number <= interval[1]:
+            return interval
+    return [0,0]
+
+def hit_plus(data,state,intervals,landings,human_action,human_kps,hand,key='upper',ball_states=[],precise_landings=[]):
     ball_location = data['real_ball']
     for start, end in intervals:
         overhead_count =  human_action[start:end + 1].count(2)
@@ -374,12 +396,15 @@ def hit_plus(data,state,intervals,human_action,human_kps,hand,key='upper',ball_s
             else:
                 valid_action = "overhead"
         else:
-            if any(start <= num <= end+1 for num in precise_landings):
+            volley_landing = find_interval(end,landings)
+            landing_time = next((num for num in precise_landings if volley_landing[0] <= num <= volley_landing[1]), None)
+            if not any(volley_landing[0] <= num <= volley_landing[1] for num in precise_landings) or volley_landing ==[0,0] :
+                valid_action = "volley"
+            else:
                 filtered_data = [x for x in human_kps[start:end + 1] if x not in [-1, 3]]
                 if not filtered_data:
                     valid_action = "not sure"
                 else:
-                    landing_time = next((num for num in precise_landings if start <= num <= end + 1), None)
                     middle_line = data['middle_line'][landing_time]
                     if middle_line-50 <= ball_location[landing_time][1] <= middle_line+50: # and human location
                         valid_action = "dropshot"
@@ -393,8 +418,6 @@ def hit_plus(data,state,intervals,human_action,human_kps,hand,key='upper',ball_s
                             valid_action = "backhand"
                         else:
                             valid_action = "forehand"
-            else:
-                valid_action = "volley"
         state[start:end + 1] = [valid_action] * (end - start + 1)
     return state
 
@@ -583,8 +606,8 @@ def draw_state_info(frame, frame_id,data,upper_state_list,lower_state_list,upper
     if frame_id in upper_hit_time:
         cv2.putText(frame, 'Hitting', (int(upper_box[2]), int(upper_box[3])),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, upper_color, 2)
-        idx = hit_time.index(frame_id)
-        if idx != len(hit_time)-1:
+        idx = upper_hit_time.index(frame_id)
+        if idx != len(upper_hit_time)-1:
             cv2.putText(frame, 'Hit intervals: {}s'.format((hit_time[idx+1]-hit_time[idx])/fps), (int(upper_box[2]), int(upper_box[3])+30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, upper_color, 2)
     elif frame_id in lower_hit_time:
@@ -773,3 +796,75 @@ def draw_heatmap(image_path, points, output_path, box_size=10):
     result = Image.alpha_composite(img.convert("RGBA"), overlay)
     result.save(output_path)
 
+
+def draw_timeline(frame_info, speed_info,fps):
+    # 创建画布
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # 分组逻辑：按 frame_id 是否超过 1000 分组
+    rows = {}
+    for frame_id, label in frame_info:
+        row = frame_id // 1000  # 计算行号
+        if row not in rows:
+            rows[row] = []
+        rows[row].append((frame_id, label))
+
+    # 绘制每一行时间轴
+    row_heights = {}  # 存储每行的高度
+    for row, frames in rows.items():
+        y = -row * 2  # 每行高度间隔为 2
+        row_heights[row] = y
+
+        # 绘制时间轴
+        ax.axhline(y=y, color='black', linewidth=2)
+
+        # 标注关键帧
+        for frame_id, label in frames:
+            x = frame_id % 1000  # 在当前行内重新计算 x 坐标
+            speed_data = speed_info[frame_id]
+
+            # 根据标签设置颜色和文本
+            if label == 'upper':
+                color = 'green'
+                text = 'upper win'
+            elif label == 'lower':
+                color = 'red'
+                text = 'lower win'
+
+            total_seconds = frame_id / fps
+
+
+            hours = int(total_seconds // 3600)
+            minutes = int((total_seconds % 3600) // 60)
+            seconds = int(total_seconds % 60)
+
+            # 格式化为两位数
+            time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
+
+            ax.text(x, y -0.5,time_str , color=color, fontsize=10, ha='center')
+            ax.scatter(x, y, color=color, s=100, zorder=5)
+            ax.text(x, y + 0.5, text, color=color, fontsize=10, ha='center')
+
+            # 在时间轴下方标注速度信息
+            speed_text = f"max: {speed_data['max_speed']:.2f}\navg: {speed_data['average_speed']:.2f}"
+            ax.text(x, y - 1, speed_text, color='blue', fontsize=8, ha='center')
+
+    # 设置时间轴范围
+    min_frame = min(frame_info, key=lambda x: x[0])[0]
+    max_frame = max(frame_info, key=lambda x: x[0])[0]
+    ax.set_xlim(-50, 1050)  # 每行的 x 轴范围固定为 0-1000
+    ax.set_ylim(min(row_heights.values()) - 2, 1)  # 动态调整 y 轴范围
+
+    # 隐藏坐标轴
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.tick_params(axis='y', which='both', length=0)
+    ax.set_yticks([])
+
+    # 添加标题
+    plt.title("Multi-Line Time Axis with Speed Annotations")
+
+    # 显示图像
+    plt.show()
