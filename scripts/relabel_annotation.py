@@ -146,12 +146,13 @@ def main(csv_path, video_path, output_txt_folder):
 
 
 if __name__ == '__main__':
-    input_video_folder = "/Users/cheungbh/Downloads/serve/video"
-    input_csv_folder = "/Users/cheungbh/Downloads/serve/txt"
-    output_txt_folder = "/Users/cheungbh/Downloads/serve/result2"
+    input_root = "/Volumes/U357/tennis_landing"
+    input_video_folder = os.path.join(input_root, "videos")
+    input_txt_folder = os.path.join(input_root, "txt")
+    output_txt_folder = os.path.join(input_root, "txt_relabel")
     if not os.path.exists(output_txt_folder):
         os.makedirs(output_txt_folder)
 
-    csv_paths, video_paths = find_csv_video_input_paths(input_csv_folder, input_video_folder)
+    csv_paths, video_paths = find_csv_video_input_paths(input_txt_folder, input_video_folder)
     for csv_path, video_path in zip(csv_paths, video_paths):
         main(csv_path, video_path, output_txt_folder)
