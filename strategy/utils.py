@@ -10,6 +10,7 @@ import json
 from PIL import Image, ImageDraw
 from PIL import Image
 import numpy as np
+# from finish_analysis import *
 
 def split_json_by_ball(json_file, output_dir):
     """
@@ -21,6 +22,7 @@ def split_json_by_ball(json_file, output_dir):
     """
     # 确保输出目录存在
     os.makedirs(output_dir, exist_ok=True)
+    frame_list = []
 
     # 读取原始 JSON 文件
     with open(json_file, 'r', encoding='utf-8') as f:
@@ -38,6 +40,7 @@ def split_json_by_ball(json_file, output_dir):
                 with open(output_file, 'w', encoding='utf-8') as f_out:
                     json.dump(current_chunk, f_out, ensure_ascii=False, indent=4)
                 print(f"已保存: {output_file}")
+                frame_list.append(entry_key)
 
                 # 重置当前块
                 current_chunk = []
@@ -46,13 +49,14 @@ def split_json_by_ball(json_file, output_dir):
             # 添加数据到当前块
             current_chunk.append({entry_key: entry_value})
 
+
     # 检查是否还有未保存的块
     if current_chunk:
         output_file = os.path.join(output_dir, f'chunk_{chunk_index}.json')
         with open(output_file, 'w', encoding='utf-8') as f_out:
             json.dump(current_chunk, f_out, ensure_ascii=False, indent=4)
         print(f"已保存: {output_file}")
-    return os.listdir(output_dir)
+    return os.listdir(output_dir),frame_list
 
 def normalize_keypoints(keypoints, bbox):
     x1, y1, x2, y2 = bbox
@@ -921,9 +925,14 @@ def draw_heatmap(image_path, points, output_path, box_size=10):
     result.save(output_path)
 
 
-def draw_timeline(frame_info, speed_info,fps,save_path):
+def draw_timeline(frame_info, speed_info,fps,save_path,game_score_dict):
     # 创建画布
     fig, ax = plt.subplots(figsize=(10, 6))
+
+    sorted_frame_ids = sorted(game_score_dict.keys())
+    sorted_values = [game_score_dict[frame_id] for frame_id in sorted_frame_ids]
+    adjusted_values = sorted_values[1:] + [sorted_values[0]]
+    adjusted_game_score_dict = {frame_id: value for frame_id, value in zip(sorted_frame_ids, adjusted_values)}
 
     # 分组逻辑：按 frame_id 是否超过 1000 分组
     rows = {}
@@ -950,11 +959,13 @@ def draw_timeline(frame_info, speed_info,fps,save_path):
             # 根据标签设置颜色和文本
             if label == 'upper':
                 color = 'green'
-                text = 'upper win'
+                text = adjusted_game_score_dict[frame_id]
             elif label == 'lower':
                 color = 'red'
-                text = 'lower win'
-
+                text = adjusted_game_score_dict[frame_id]
+            elif label == 'Not sure':
+                color = 'gray'
+                text = adjusted_game_score_dict[frame_id]
             total_seconds = frame_id / fps
 
 
@@ -995,3 +1006,33 @@ def draw_timeline(frame_info, speed_info,fps,save_path):
     # 显示图像
     # plt.show()
     plt.close()
+
+def extract_matching_values(list1, list2):
+    result = [[],[]]
+    alpha_strings = [item for item in list1 if any(c.isalpha() for c in item)]
+    alpha_strings = sorted(alpha_strings, key=len, reverse=True)[:2]  # 取最长的两个
+    alpha_indices = [i for i, item in enumerate(list1) if item in alpha_strings]
+    for i, alpha_index in enumerate(alpha_indices):
+        alpha_str = list1[alpha_index]  # 当前的包含字母的字符串
+
+        # 确定搜索范围
+        start = alpha_index + 1
+        if i + 1 < len(alpha_indices):
+            end = alpha_indices[i + 1]  # 下一个包含字母的字符串的索引
+        else:
+            end = len(list1)  # 到列表末尾
+
+        # 在范围内查找与 list2 匹配的值
+        matched_value = '0'  # 默认值为 '0'
+        for item in list1[start:end]:
+            if start == end:
+                break
+            if item in list2:
+                matched_value = item
+                break
+
+        # 添加结果
+        # result.append([f"{alpha_str}:{matched_value}"])
+        result[i]=[alpha_str,matched_value]
+
+    return result

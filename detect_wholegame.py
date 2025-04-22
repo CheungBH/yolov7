@@ -7,7 +7,7 @@ from strategy.json_analysis import main as json_analysis
 from strategy.data_manager import DataManagement
 from strategy.tracker.sort_tracker import BoxTracker
 from pathlib import Path
-from utils.click_court import click_points
+from utils.click_court import *
 from strategy.classifier.image_classifier import ImageClassifier
 import cv2
 import torch
@@ -114,6 +114,9 @@ def detect():
     seqML_model = joblib.load(seqML_classifier)
     seqML_class = "weights/latest_assets/seqML/classes.txt"
     seqML_colors = [(0, 255, 0), (0, 0, 255), (255, 0, 0), (0,0,0)]
+
+    ocr_detect_path = r"C:\Users\cheun\OneDrive\Documents\WeChat Files\wxid_d8k0120oxz6z22\FileStorage\File\2025-04\final_model2\final_model2\det"
+    ocr_rec_path = r"C:\Users\cheun\OneDrive\Documents\WeChat Files\wxid_d8k0120oxz6z22\FileStorage\File\2025-04\final_model2\final_model2\rec"
     with open(seqML_class, 'r') as file:
         seq_ML_classes = [line[:-1] for line in file.readlines()]
     seq_ML_config = os.path.join(os.path.dirname(seqML_classifier), "config.json")
@@ -206,7 +209,7 @@ def detect():
 
 
     if not mask_points:
-        mask_points = click_points(img)
+        mask_points = mask_points,score_points = select_points_in_video(source)
     cap.release()
     cv2.destroyAllWindows()
 
@@ -249,6 +252,8 @@ def detect():
             classifier_result = highlight_classifier(im0s).tolist() # 0: playing, 1: highlight
             classifier_list.append(classifier_result)
             box_assets[idx]["classifier"] = classifier_result
+            ocr_result = ocr_detect(score_points,im0s,ocr_detect_path,ocr_rec_path)
+            box_assets[idx]["ocr_result"] = ocr_result
 
             play_duration = 5  # 0: play 1:high
             if len(classifier_list) < play_duration:
@@ -396,6 +401,7 @@ def detect():
             data_assets["classifier"] = classifier_result
             data_assets["court"] = lines.tolist()
             data_assets["ball_prediction"] = pred_ball_location
+            data_assets['ocr_result'] = ocr_result
 
             # data_manger.first_filter(data_assets)
             data_manger.first_filter(data_assets,current_matrix,idx)
@@ -452,6 +458,7 @@ def detect():
             data_assets["classifier"] = 1
             data_assets["court"] = -1
             data_assets["ball_prediction"] = -1
+            data_manger.process_ocr_result(ocr_result)
             strategy_assets = data_manger.get_strategy_assets_dummy(idx)
             tv_list.append(cv2.resize(top_view.visualize_dummy(), (top_view_w, top_view_h)))
 

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from .utils import find_closest_point, normalize_keypoints, euclidean_distance
+from .utils import find_closest_point, normalize_keypoints, euclidean_distance,extract_matching_values
 import numpy as np
 import cv2
 
@@ -30,6 +30,7 @@ class DataManagement:
         self.rally_cnt = 0
         self.ball_position = []
         self.ball_enhance_position = []
+        self.ocr_result = []
 
 
     def get_kps_prediction_input(self, step, frame_cnt):
@@ -73,6 +74,7 @@ class DataManagement:
             "upper_human_kps": self.players_kps["upper"][-1],
             "lower_human_kps_pred": self.players_kps_preds["lower"][-1],
             "upper_human_kps_pred": self.players_kps_preds["upper"][-1],
+            "ocr_result": self.ocr_result[-1],
         }
         return self.assets
 
@@ -101,6 +103,7 @@ class DataManagement:
             "upper_human_kps": -1,
             "lower_human_kps_pred": -1,
             "upper_human_kps_pred": -1,
+            "ocr_result": self.ocr_result[-1],
         }
         return self.assets
 
@@ -116,6 +119,7 @@ class DataManagement:
         self.process_classifier(self.classifier_raw)
         self.process_ball(box_assets['ball'], box_assets['ball_prediction'])
         self.process_human(box_assets['person'])
+        self.process_ocr_result(box_assets['ocr_result'])
         selected_ball = self.get_ball()
         selected_humans = self.get_humans_feet()
         self.real_balls.append(self.transform_location(matrix=current_matrix, location=np.array([[selected_ball]])).tolist())
@@ -128,7 +132,13 @@ class DataManagement:
             return cv2.perspectiveTransform(location, matrix).reshape(-1)
         else:
             return np.array([-1, -1])
-
+    def process_ocr_result(self,ocr_result):
+        if ocr_result == []:
+            self.ocr_result.append([])
+        else:
+            valid_points = ['15', '30', '40', 'AD']
+            game_points = extract_matching_values(ocr_result, valid_points)
+            self.ocr_result.append(game_points)
     def get_ball(self):
         return self.balls[-1]
 

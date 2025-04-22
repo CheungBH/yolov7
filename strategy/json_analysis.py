@@ -2,6 +2,7 @@ import os
 import json
 import cv2
 from collections import defaultdict
+# from finish_analysis import *
 # from server_01 import ServeChecker
 from numpy.array_api import result_type
 try:
@@ -13,14 +14,15 @@ def read_json_file(json_file):
     data = {}
     root = os.path.dirname(json_file)
     split_json = os.path.join(root,'split_file')
-    split_dir = split_json_by_ball(json_file,split_json)
+    split_dir,highlight_list = split_json_by_ball(json_file,split_json)
     for idx,file in enumerate(split_dir):
         file_f = os.path.join(split_json,file)
         with open(file_f, 'r') as f:
             datasets = json.load(f)
         data[idx] = transform_dict_extended(datasets,['upper_human','upper_actions','real_upper_human',
                                           'lower_human','lower_actions','real_lower_human',"lower_human_kps_pred",
-                                    "upper_human_kps_pred",'ball','ball_prediction','curve_status','real_ball','rally_cnt','middle_line','court'])
+                                    "upper_human_kps_pred",'ball','ball_prediction','curve_status',
+                                                      'real_ball','rally_cnt','middle_line','court','ocr_result'])
         data[idx]['ball'] = filter_ball(data[idx]['ball'])
         data[idx]['real_ball'] = filter_ball(data[idx]['real_ball'])
 
@@ -233,7 +235,27 @@ def easy_diff_shot(data,precise_landings):
         else:
             shot_degree[landing] = 'easy'
     return shot_degree
-
+def ocr_detect(data,start_frame_id,end_frame_id):
+    # ocr_result = data['ocr_result'][start_frame_id:end_frame_id+1]
+    ocr_result = data['ocr_result'][0:end_frame_id-start_frame_id + 1]
+    player1_score = []
+    player2_score = []
+    for game_points in ocr_result:
+        if len(game_points) == 2:
+            if game_points[1]!=[]:
+                player1_score.append(game_points[0][1])
+                player2_score.append(game_points[1][1])
+    if player1_score == [] or player2_score == []:
+        real_score =[]
+    else:
+        counter1 = Counter(player1_score)
+        max_count1 = max(counter1.values())
+        most_common_elements1 = [element for element, count in counter1.items() if count == max_count1]
+        counter2 = Counter(player2_score)
+        max_count2 = max(counter2.values())
+        most_common_elements2 = [element for element, count in counter2.items() if count == max_count2]
+        real_score = [most_common_elements1,most_common_elements2]
+    return real_score
 def write_json(path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
                upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,
                upper_hit_time,lower_hit_time,shot_degree,precise_landings):
@@ -307,6 +329,7 @@ def main(csv_file,video_file, output_video_folder, info_json):
     lower_human_matrix = []
     events = []
     speeds = {}
+    game_score_dict= {}
     for key,data in data_dict.items():
         total_frame = min(video_frame,len(data['frame_id']))
         rally_change_list, rally_change_intervals = process_rally_changes(data)
@@ -328,11 +351,14 @@ def main(csv_file,video_file, output_video_folder, info_json):
         os.makedirs(output_video_folder, exist_ok=True)
         frame_id = 0
         start_frame_id = data['frame_id'][0]
+        end_frame_id = data['frame_id'][-1]
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        output_path = os.path.join(output_video_folder, 'out_{}'.format(start_frame_id))
-        output_videdo_path = os.path.join(output_video_folder, 'out_{}/analysis_output.mp4'.format(start_frame_id))
+        game_score = ocr_detect(data, start_frame_id, end_frame_id)
+        game_score_dict[end_frame_id+1] = game_score
+        output_path = os.path.join(output_video_folder, 'out_{}_{}_{}'.format(start_frame_id,end_frame_id,game_score))
+        output_video_path = os.path.join(output_video_folder, 'out_{}_{}/analysis_output.mp4'.format(start_frame_id,end_frame_id))
         os.makedirs(output_path, exist_ok=True)
-        out = cv2.VideoWriter(output_videdo_path, fourcc, fps, (width, height))
+        out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
         ball_matrix.append(draw_ball_heatmap(data, precise_landings,output_path))
         upper_human_matrix.append(draw_human_heatmap(data,upper_hit_time, output_path,'upper'))
         lower_human_matrix.append(draw_human_heatmap(data, lower_hit_time, output_path,'lower'))
@@ -380,10 +406,10 @@ def main(csv_file,video_file, output_video_folder, info_json):
             flattened_list)) * fps / 100 * 3.6 if len(flattened_list) != 0 else 0,
                  'max_speed': max(flattened_list) * fps / 100 * 3.6 if len(
                      flattened_list) != 0 else 0}
-        draw_timeline(events, speeds,fps,time_line_path)
+
         write_json(output_json_path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
                    upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,upper_hit_time,lower_hit_time, shot_degree, precise_landings)
-
+    draw_timeline(events, speeds, fps, time_line_path, game_score_dict)
         # plot_heatmap(sum(ball_matrix))
         # plot_heatmap(sum(upper_human_matrix))
         # plot_heatmap(sum(lower_human_matrix))
@@ -415,9 +441,9 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
 if __name__ == "__main__":
 
-    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\game1\game1_filter.json"
+    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\game_1_plus\game1_filter.json"
     input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\game1\game1.mp4"
-    output_video_folder = 'output/88'
+    output_video_folder = 'output/100'
     info_json = r"C:\Users\Public\zcj\yolov7\yolov7main\output\top100_97\info.json"
     # input_json_file = "output/kh_1/20231011_kh_yt_2_filter.json"
     main(input_json_file,input_video_file, output_video_folder,info_json)
