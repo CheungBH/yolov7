@@ -228,6 +228,7 @@ def find_first_landing_with_window(lst, window_size,begin):
 
 
 def extract_valid_elements(list1, list2):
+    list2.append(len(list1)-1)
     result = []
 
     for idx in list2:
@@ -473,7 +474,10 @@ def calculate_change_direction(states, coordinates,limit_area=0):
         start_coord = coordinates[start_idx]
         end_coord = coordinates[end_idx]
         displacement = (end_coord[0] - start_coord[0], end_coord[1] - start_coord[1])
-        displacements.append(displacement)
+        if displacement != (0, 0):
+            displacements.append(displacement)
+        else:
+            displacements.append((1,1))
 
     # 比较连续区间的位移夹角
     for i in range(1, len(intervals)):
@@ -584,7 +588,8 @@ def draw_ball_boxes_arrows(frame, frame_id,data,cross_straight_dict,precise_land
         start_point = (int(cross_straight_dict[valid_frame_id][0][0]),int(cross_straight_dict[valid_frame_id][0][1]))
         end_point = (int(cross_straight_dict[valid_frame_id][1][0]),int(cross_straight_dict[valid_frame_id][1][1]))
         arrow_color = (255, 0, 0) if state == 0 else (0, 0, 255)
-        cv2.arrowedLine(frame, end_point, start_point, arrow_color, 3)
+        if start_point[0] > 0:
+            cv2.arrowedLine(frame, end_point, start_point, arrow_color, 3)
 
 def draw_real_ball_boxes_arrows(image_path, data, upper_hit_times,lower_hit_times, precise_landings,output_path):
     hit_location = {}
@@ -604,13 +609,17 @@ def draw_real_ball_boxes_arrows(image_path, data, upper_hit_times,lower_hit_time
         else:
             hit_location[0] = data['real_lower_human'][0]
     i=-1
-    if data['real_ball'][i] ==[-1,-1]:
-        j = i-1
-        while data['real_ball'][j] == [-1, -1]:
-            j -= 1
-        last_ball = data['real_ball'][j]
-    else:
-        last_ball = data['real_ball'][i]
+    try:
+        if data['real_ball'][i] ==[-1,-1]:
+            j = i-1
+            while data['real_ball'][j] == [-1, -1]:
+                j -= 1
+            last_ball = data['real_ball'][j]
+        else:
+            last_ball = data['real_ball'][i]
+    except:
+        last_ball=[500,500]
+
     for upper_hit_time in intervals1:
         hit_location[upper_hit_time] = data['real_upper_human'][upper_hit_time]
     for lower_hit_time in intervals2:
@@ -933,7 +942,7 @@ def draw_timeline(frame_info, speed_info,fps,save_path,game_score_dict):
     sorted_values = [game_score_dict[frame_id] for frame_id in sorted_frame_ids]
     adjusted_values = sorted_values[1:] + [sorted_values[0]]
     adjusted_game_score_dict = {frame_id: value for frame_id, value in zip(sorted_frame_ids, adjusted_values)}
-
+    color_dict = assign_colors(adjusted_game_score_dict)
     # 分组逻辑：按 frame_id 是否超过 1000 分组
     rows = {}
     for frame_id, label in frame_info:
@@ -955,19 +964,9 @@ def draw_timeline(frame_info, speed_info,fps,save_path,game_score_dict):
         for frame_id, label in frames:
             x = frame_id % 1000  # 在当前行内重新计算 x 坐标
             speed_data = speed_info[frame_id]
-
-            # 根据标签设置颜色和文本
-            if label == 'upper':
-                color = 'green'
-                text = adjusted_game_score_dict[frame_id]
-            elif label == 'lower':
-                color = 'red'
-                text = adjusted_game_score_dict[frame_id]
-            elif label == 'Not sure':
-                color = 'gray'
-                text = adjusted_game_score_dict[frame_id]
+            color = color_dict[frame_id]
+            text = adjusted_game_score_dict[frame_id]
             total_seconds = frame_id / fps
-
 
             hours = int(total_seconds // 3600)
             minutes = int((total_seconds % 3600) // 60)
@@ -976,19 +975,19 @@ def draw_timeline(frame_info, speed_info,fps,save_path,game_score_dict):
             # 格式化为两位数
             time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
 
-            ax.text(x, y -1,time_str , color=color, fontsize=8, ha='center')
+            ax.text(x, y + 1 ,time_str , color=color, fontsize=8, ha='center')
             ax.scatter(x, y, color=color, s=100, zorder=5)
-            ax.text(x, y + 0.5, text, color=color, fontsize=10, ha='center')
+            ax.text(x, y - 1, text, color=color, fontsize=10, ha='center')
 
             # 在时间轴下方标注速度信息
-            speed_text = f"max: {speed_data['max_speed']:.2f}\navg: {speed_data['average_speed']:.2f}"
-            ax.text(x, y - 2, speed_text, color='blue', fontsize=8, ha='center')
+            # speed_text = f"max: {speed_data['max_speed']:.2f}\navg: {speed_data['average_speed']:.2f}"
+            # ax.text(x, y - 2, speed_text, color='blue', fontsize=8, ha='center')
 
     # 设置时间轴范围
     min_frame = min(frame_info, key=lambda x: x[0])[0]
     max_frame = max(frame_info, key=lambda x: x[0])[0]
     ax.set_xlim(-50, 1050)  # 每行的 x 轴范围固定为 0-1000
-    ax.set_ylim(min(row_heights.values()) - 2, 1)  # 动态调整 y 轴范围
+    ax.set_ylim(min(row_heights.values()) - 2, 2)  # 动态调整 y 轴范围
 
     # 隐藏坐标轴
     ax.spines['top'].set_visible(False)
@@ -1030,9 +1029,45 @@ def extract_matching_values(list1, list2):
             if item in list2:
                 matched_value = item
                 break
-
-        # 添加结果
-        # result.append([f"{alpha_str}:{matched_value}"])
         result[i]=[alpha_str,matched_value]
 
     return result
+
+
+def assign_colors(game_score_dict):
+    color = {}
+    initial_value = [['0'], ['0']]
+
+    for frame_id in sorted(game_score_dict.keys()):
+        current_value = game_score_dict[frame_id]
+        if current_value == []:
+            if 'AD' in initial_value[0][0] :
+                color[frame_id] = 'red'
+            elif 'AD' in initial_value[1][0]:
+                color[frame_id] = 'green'
+            elif int(initial_value[0][0]) > int(initial_value[1][0]):
+                color[frame_id] = 'red'
+            elif int(initial_value[1][0]) > int(initial_value[0][0]):
+                color[frame_id] = 'green'
+            else:
+                color[frame_id] = 'gray'
+        elif current_value[0][0] == initial_value[0][0] and current_value[1][0] == initial_value[1][0]:
+            color[frame_id] = 'gray'
+        elif 'AD' in current_value[0][0] or 'AD' in current_value[1][0]:
+            if current_value[0][0] == 'AD':
+                color[frame_id] = 'red'
+            elif current_value[1][0] == 'AD':
+                color[frame_id] = 'green'
+        else:
+            if 'AD' in initial_value[1][0]:
+                color[frame_id] = 'red'
+            elif 'AD' in initial_value[0][0]:
+                color[frame_id] = 'green'
+            elif int(current_value[0][0]) > int(initial_value[0][0]):
+                color[frame_id] = 'red'
+            else:
+                color[frame_id] = 'green'
+
+        initial_value = current_value
+
+    return color

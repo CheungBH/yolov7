@@ -22,7 +22,7 @@ def read_json_file(json_file):
         data[idx] = transform_dict_extended(datasets,['upper_human','upper_actions','real_upper_human',
                                           'lower_human','lower_actions','real_lower_human',"lower_human_kps_pred",
                                     "upper_human_kps_pred",'ball','ball_prediction','curve_status',
-                                                      'real_ball','rally_cnt','middle_line','court','ocr_result'])
+                                                      'real_ball','rally_cnt','middle_line','court','ocr_result','lower_human_kps','upper_human_kps'])
         data[idx]['ball'] = filter_ball(data[idx]['ball'])
         data[idx]['real_ball'] = filter_ball(data[idx]['real_ball'])
 
@@ -157,9 +157,9 @@ def cross_straight(data, hit_time):
     cross_line = defaultdict(list)
     ball_list = data['ball']
     ball_valid = extract_valid_elements(ball_list,hit_time)
-    ball_valid.append(ball_list[-1])
+    # ball_valid.append(ball_list[-1])
     for idx,hit_t in enumerate(hit_time):
-        if idx <= len(hit_time)-1:
+        if idx <= len(hit_time)-2:
             x_coords = [data['court'][hit_t][0], data['court'][hit_t][1],
                         data['court'][hit_t][3], data['court'][hit_t][5]]
             court_width = max(x_coords) - min(x_coords)
@@ -256,6 +256,43 @@ def ocr_detect(data,start_frame_id,end_frame_id):
         most_common_elements2 = [element for element, count in counter2.items() if count == max_count2]
         real_score = [most_common_elements1,most_common_elements2]
     return real_score
+def find_team(data,frame,frame_id):
+    lower_kps = data['lower_human_kps']
+    upper_kps = data['upper_human_kps']
+
+    lower_clothes = [[int(lower_kps[frame_id][15]), int(lower_kps[frame_id][16])],
+                     [int(lower_kps[frame_id][18]), int(lower_kps[frame_id][19])]]
+
+    lower_pants = [[int(lower_kps[frame_id][33]), int(lower_kps[frame_id][34])],
+                   [int(lower_kps[frame_id][36]), int(lower_kps[frame_id][37])]]
+
+    upper_clothes = [[int(upper_kps[frame_id][16]), int(upper_kps[frame_id][15])],
+                     [int(upper_kps[frame_id][19]), int(upper_kps[frame_id][18])]]
+
+    upper_pants = [[int(upper_kps[frame_id][34]), int(upper_kps[frame_id][33])],
+                   [int(upper_kps[frame_id][37]), int(upper_kps[frame_id][36])]]
+
+    # 获取两个点的像素值 (BGR)
+    color1 = frame[lower_clothes[0]]  # 第一个点的颜色
+    color2 = frame[lower_clothes[1]]
+    color3 = frame[lower_pants[1]]
+    color4 = frame[upper_clothes[1]]
+    cv2.circle(frame, lower_clothes[0], 10, (255, 0, 0), -1)
+    cv2.circle(frame, lower_clothes[1], 10, (255, 0, 0), -1)
+    cv2.circle(frame, lower_pants[0], 10, (255, 0, 0), -1)
+    cv2.circle(frame, lower_pants[1], 10, (255, 0, 0), -1)
+    # cv2.circle(frame, upper_clothes[0], 10, (255, 0, 0), -1)
+    # cv2.circle(frame, upper_clothes[1], 10, (255, 0, 0), -1)
+    # cv2.circle(frame, upper_pants[0], 10, (255, 0, 0), -1)
+    # cv2.circle(frame, upper_pants[1], 10, (255, 0, 0), -1)
+    variance1 = np.mean((color1 - color2) ** 2)
+    variance2 = np.mean((color1 - color3) ** 2)
+    variance3 = np.mean((color1 - color4) ** 2)
+    if frame_id>0:
+        color5 =frame[[int(lower_kps[frame_id-1][16]), int(lower_kps[frame_id-1][15])]]
+        variance4 = np.mean((color1 - color5) ** 2)
+    a=1
+
 def write_json(path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
                upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,
                upper_hit_time,lower_hit_time,shot_degree,precise_landings):
@@ -330,7 +367,12 @@ def main(csv_file,video_file, output_video_folder, info_json):
     events = []
     speeds = {}
     game_score_dict= {}
-    for key,data in data_dict.items():
+    set_game = 0
+    for key,data in sorted(data_dict.items()):
+        start_frame_id = data['frame_id'][0]
+        end_frame_id = data['frame_id'][-1]
+        if start_frame_id >= end_frame_id - 30:
+            continue
         total_frame = min(video_frame,len(data['frame_id']))
         rally_change_list, rally_change_intervals = process_rally_changes(data)
         hit_time,hit_intervals,upper_hit_time,upper_hit_intervals,lower_hit_time,lower_hit_intervals \
@@ -350,13 +392,16 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
         os.makedirs(output_video_folder, exist_ok=True)
         frame_id = 0
-        start_frame_id = data['frame_id'][0]
-        end_frame_id = data['frame_id'][-1]
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         game_score = ocr_detect(data, start_frame_id, end_frame_id)
         game_score_dict[end_frame_id+1] = game_score
-        output_path = os.path.join(output_video_folder, 'out_{}_{}_{}'.format(start_frame_id,end_frame_id,game_score))
-        output_video_path = os.path.join(output_video_folder, 'out_{}_{}/analysis_output.mp4'.format(start_frame_id,end_frame_id))
+
+        if game_score ==[] or (game_score[0][0]=="0" and game_score[1][0]=="0"):
+            set_game += 1
+        output_path = os.path.join(output_video_folder, 'game_{}/{}_{}_{}'.format(set_game,start_frame_id,end_frame_id,game_score))
+
+        output_video_path = os.path.join(output_video_folder, 'game_{}/{}_{}_{}/analysis_output.mp4'.format
+        (set_game,start_frame_id,end_frame_id,game_score))
         os.makedirs(output_path, exist_ok=True)
         out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
         ball_matrix.append(draw_ball_heatmap(data, precise_landings,output_path))
@@ -377,11 +422,13 @@ def main(csv_file,video_file, output_video_folder, info_json):
             upper_left_corner, upper_right_corner = (int(court_location[0])-100, int(court_location[1])), (int(court_location[2]), int(court_location[3]))
             middle_left, middle_right = (int(court_location[8])-100, int(court_location[9])), (int(court_location[10]), int(court_location[11]))
             lower_left_corner, lower_right_corner = (int(court_location[4])-100, int(court_location[5])), (int(court_location[6]), int(court_location[7]))
-
+            # find_team(data,frame,start_frame_id+frame_id)
             cv2.putText(frame, 'frame_id: {}'.format(frame_id+start_frame_id), (100, 100),
                          cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
             cv2.putText(frame, 'rally_cnt: {}'.format(data['rally_cnt'][frame_id]), middle_right,
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            cv2.putText(frame, 'Game_score: {}'.format(game_score), (100, 150),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
             if precise_landings:
                 if frame_id >= precise_landings[-1]:
                     cv2.putText(frame, '{} win'.format(game_winner), (500, 100),
@@ -441,9 +488,9 @@ def main(csv_file,video_file, output_video_folder, info_json):
 
 if __name__ == "__main__":
 
-    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\game_1_plus\game1_filter.json"
-    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\game1\game1.mp4"
-    output_video_folder = 'output/100'
+    input_json_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\20231011_kh_yt_18_2\20231011_kh_yt_18_2_filter.json"
+    input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\20231011_kh_yt_18_2\20231011_kh_yt_18_2.mp4"
+    output_video_folder = 'output/20231011_kh_yt_18_2'
     info_json = r"C:\Users\Public\zcj\yolov7\yolov7main\output\top100_97\info.json"
     # input_json_file = "output/kh_1/20231011_kh_yt_2_filter.json"
     main(input_json_file,input_video_file, output_video_folder,info_json)

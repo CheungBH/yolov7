@@ -176,7 +176,7 @@ def detect():
     pose_names = pose_model.module.names if hasattr(pose_model, 'module') else pose_model.names
     ball_names = ["ball"]
     names = [ball_names, pose_names]
-    click_type = 'detect' # 'detect' or 'inner'
+    click_type = 'inner' # 'detect' or 'inner'
     keep_court = False
 
     ball_color = [(128, 0, 128)]
@@ -305,9 +305,9 @@ def detect():
 
             preds = [ball_pred, pose_pred] # detection result
             types = ["ball", "pose"]
-
+            tracked_pose = np.array([])
             for pred, color, name, typ in zip(preds, colors, names, types):
-                for i, det in enumerate(pred):  # detections per image
+                for i, det in enumerate(pred):   # detections per image
                     if webcam:  # batch_size >= 1
                         p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
                     else:
@@ -492,7 +492,7 @@ def detect():
     json_to_csv(box_assets_filter_path, csv_file_path)
     shutil.copy(source, os.path.join(output_folder, os.path.basename(source)))
     shutil.copy(box_asset_path, os.path.join(output_folder, os.path.basename(box_asset_path)))
-    json_analysis(box_assets_filter_path, source, output_folder, "info.json")
+    # json_analysis(box_assets_filter_path, source, output_folder, "info.json")
 
 
 

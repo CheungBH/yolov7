@@ -307,3 +307,33 @@ class DataManagement:
                     self.ball_enhance_position.pop(0)
                     print(self.rally_cnt)
 
+    def process_classifier_list(self,input_list, window_size=5):
+        result = []  # 存储最终结果
+        pending_indices = []  # 存储待定状态的索引
+
+        for i in range(len(input_list)):
+            if i < window_size:
+                result.append(int(sum(input_list[0:i+1])/(i+1)))
+            else:
+                window = input_list[i-window_size+1:i+1]  # 提取滑动窗口
+                ones_count = sum(window)  # 统计窗口中1的数量
+                zeros_count = window_size - ones_count  # 统计窗口中0的数量
+
+                if ones_count >= 4:  # 如果窗口中有超过4个1
+                    result.append(1)
+                    # 将之前所有待定状态设置为1
+                    for idx in pending_indices:
+                        result[idx] = 1
+                    pending_indices.clear()  # 清空待定状态
+                elif zeros_count >= 4:  # 如果窗口中有超过4个0
+                    result.append(0)
+                    # 将之前所有待定状态设置为0
+                    for idx in pending_indices:
+                        result[idx] = 0
+                    pending_indices.clear()  # 清空待定状态
+                else:  # 如果窗口中的1和0数量都不超过4个
+                    result.append("待定")
+                    pending_indices.append(i)  # 记录待定状态的索引
+        return result
+
+
