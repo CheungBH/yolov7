@@ -97,7 +97,7 @@ def detect():
     model_cfg = "/".join(classifier_path.split("/")[:-1]) + "/model_cfg.yaml"
     label_path = "/".join(classifier_path.split("/")[:-1]) + "/labels.txt"
     highlight_classifier = ImageClassifier(classifier_path, model_cfg, label_path, device="cuda:0")
-
+    #classifier_result = highlight_classifier(im0s).tolist()
     landing_path = 'weights/latest_assets/landing/latest_landing.joblib'
     curve_class_file = os.path.join(os.path.dirname(landing_path), "classes.txt")
     with open(curve_class_file, 'r') as file:
@@ -249,7 +249,9 @@ def detect():
             classifier_status = classifier_result
         else:
             box_assets[idx] = {}
-            classifier_result = highlight_classifier(im0s).tolist() # 0: playing, 1: highlight
+            frame_gray = cv2.cvtColor(im0s, cv2.COLOR_BGR2GRAY)
+            gray_3ch = cv2.cvtColor(frame_gray, cv2.COLOR_GRAY2BGR)
+            classifier_result = highlight_classifier(gray_3ch).tolist() # 0: playing, 1: highlight
             classifier_list.append(classifier_result)
             box_assets[idx]["classifier"] = classifier_result
             ocr_result = ocr_detect(score_points,im0s,ocr_detect_path,ocr_rec_path)
@@ -447,7 +449,9 @@ def detect():
 
         else:
             box_assets[idx] = {}
-            classifier_result = highlight_classifier(im0s).tolist()  # 0: playing, 1: highlight
+            frame_gray = cv2.cvtColor(im0s, cv2.COLOR_BGR2GRAY)
+            gray_3ch = cv2.cvtColor(frame_gray, cv2.COLOR_GRAY2BGR)
+            classifier_result = highlight_classifier(gray_3ch).tolist()  # 0: playing, 1: highlight
             highlight_classifier.visualize(im0s, classifier_result)
 
             classifier_list.append(classifier_result)
@@ -492,7 +496,7 @@ def detect():
     json_to_csv(box_assets_filter_path, csv_file_path)
     shutil.copy(source, os.path.join(output_folder, os.path.basename(source)))
     shutil.copy(box_asset_path, os.path.join(output_folder, os.path.basename(box_asset_path)))
-    # json_analysis(box_assets_filter_path, source, output_folder, "info.json")
+    json_analysis(box_assets_filter_path, source, output_folder, info_json="info.json",court_image_path='strategy/court/court_reference.png')
 
 
 

@@ -350,7 +350,7 @@ def write_json(path,data,serve_side,game_winner,last_landing,fps,ball_speed_list
 
 
 
-def main(csv_file,video_file, output_video_folder, info_json):
+def main(csv_file,video_file, output_video_folder, info_json,court_image_path):
     os.makedirs(output_video_folder,exist_ok=True)
     serve_side,serve_part,upper_hand,lower_hand = read_info_json_file(info_json)
     data_dict = read_json_file(csv_file)
@@ -445,7 +445,7 @@ def main(csv_file,video_file, output_video_folder, info_json):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
             frame_id += 1
-        image_path = r"C:\Users\Public\zcj\yolov7\yolov7main\strategy\court\court_reference.png"
+        image_path = court_image_path
         draw_real_ball_boxes_arrows(image_path, data, upper_hit_time,lower_hit_time, precise_landings,output_path=os.path.join(output_path,'review.jpg'))
         events.append([frame_id+start_frame_id, game_winner])
         flattened_list = [item for sublist in ball_speed_list for item in sublist]
@@ -492,5 +492,15 @@ if __name__ == "__main__":
     input_video_file = r"C:\Users\Public\zcj\yolov7\yolov7main\output\20231011_kh_yt_18_2\20231011_kh_yt_18_2.mp4"
     output_video_folder = 'output/20231011_kh_yt_18_2'
     info_json = r"C:\Users\Public\zcj\yolov7\yolov7main\output\top100_97\info.json"
+    court_image_path = r"C:\Users\Public\zcj\yolov7\yolov7main\strategy\court\court_reference.png"
     # input_json_file = "output/kh_1/20231011_kh_yt_2_filter.json"
-    main(input_json_file,input_video_file, output_video_folder,info_json)
+    main(input_json_file,input_video_file, output_video_folder,info_json,court_image_path)
+
+"""
+    {
+    "serve_side": "lower",
+    "serve_part": "left",
+    "lower_hand":0,
+    "upper_hand":0
+}
+"""
