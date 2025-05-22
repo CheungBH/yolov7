@@ -105,9 +105,9 @@ def detect():
     curve_model = joblib.load(landing_path)
     ball_curve_color = [(0, 255, 0), (0, 0, 255)]
 
-    x_regression_path = 'weights/latest_assets/x_regression.joblib'
+    x_regression_path = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\regression_model\Ridge_modelx.joblib"
     x_regressor = joblib.load(x_regression_path)
-    y_regression_path = 'weights/latest_assets/y_regression.joblib'
+    y_regression_path = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\regression_model\Ridge_modely.joblib"
     y_regressor = joblib.load(y_regression_path)
 
     seqML_classifier = "weights/latest_assets/seqML/model.joblib"
@@ -115,8 +115,8 @@ def detect():
     seqML_class = "weights/latest_assets/seqML/classes.txt"
     seqML_colors = [(0, 255, 0), (0, 0, 255), (255, 0, 0), (0,0,0)]
 
-    ocr_detect_path = r"C:\Users\cheun\OneDrive\Documents\WeChat Files\wxid_d8k0120oxz6z22\FileStorage\File\2025-04\final_model2\final_model2\det"
-    ocr_rec_path = r"C:\Users\cheun\OneDrive\Documents\WeChat Files\wxid_d8k0120oxz6z22\FileStorage\File\2025-04\final_model2\final_model2\rec"
+    ocr_detect_path = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\final_model2\det"
+    ocr_rec_path = r"C:\Users\Public\zcj\yolov7\yolov7main\datasets\ball_combine\final_model2\rec"
     with open(seqML_class, 'r') as file:
         seq_ML_classes = [line[:-1] for line in file.readlines()]
     seq_ML_config = os.path.join(os.path.dirname(seqML_classifier), "config.json")
@@ -249,9 +249,10 @@ def detect():
             classifier_status = classifier_result
         else:
             box_assets[idx] = {}
-            frame_gray = cv2.cvtColor(im0s, cv2.COLOR_BGR2GRAY)
-            gray_3ch = cv2.cvtColor(frame_gray, cv2.COLOR_GRAY2BGR)
-            classifier_result = highlight_classifier(gray_3ch).tolist() # 0: playing, 1: highlight
+            # frame_gray = cv2.cvtColor(im0s, cv2.COLOR_BGR2GRAY)
+            # gray_3ch = cv2.cvtColor(frame_gray, cv2.COLOR_GRAY2BGR)
+            # classifier_result = highlight_classifier(gray_3ch).tolist() # 0: playing, 1: highlight
+            classifier_result = highlight_classifier(im0s).tolist()
             classifier_list.append(classifier_result)
             box_assets[idx]["classifier"] = classifier_result
             ocr_result = ocr_detect(score_points,im0s,ocr_detect_path,ocr_rec_path)
@@ -449,9 +450,10 @@ def detect():
 
         else:
             box_assets[idx] = {}
-            frame_gray = cv2.cvtColor(im0s, cv2.COLOR_BGR2GRAY)
-            gray_3ch = cv2.cvtColor(frame_gray, cv2.COLOR_GRAY2BGR)
-            classifier_result = highlight_classifier(gray_3ch).tolist()  # 0: playing, 1: highlight
+            # frame_gray = cv2.cvtColor(im0s, cv2.COLOR_BGR2GRAY)
+            # gray_3ch = cv2.cvtColor(frame_gray, cv2.COLOR_GRAY2BGR)
+            # classifier_result = highlight_classifier(gray_3ch).tolist()  # 0: playing, 1: highlight
+            classifier_result = highlight_classifier(im0s).tolist()
             highlight_classifier.visualize(im0s, classifier_result)
 
             classifier_list.append(classifier_result)

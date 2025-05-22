@@ -365,6 +365,7 @@ def main(csv_file,video_file, output_video_folder, info_json,court_image_path):
     upper_human_matrix = []
     lower_human_matrix = []
     events = []
+    merged_dict = {}
     speeds = {}
     game_score_dict= {}
     set_game = 0
@@ -409,6 +410,7 @@ def main(csv_file,video_file, output_video_folder, info_json,court_image_path):
         lower_human_matrix.append(draw_human_heatmap(data, lower_hit_time, output_path,'lower'))
         output_json_path = os.path.join(output_path, 'analysis_output.json'.format(start_frame_id))
         time_line_path = os.path.join(output_video_folder, 'timeline.jpg')
+        merged_timeline_path = os.path.join(output_video_folder, 'timeline.json')
 
         cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame_id)
         while cap.isOpened():
@@ -456,7 +458,9 @@ def main(csv_file,video_file, output_video_folder, info_json,court_image_path):
 
         write_json(output_json_path,data,serve_side,game_winner,last_landing,fps,ball_speed_list,upper_state_list, lower_state_list,
                    upper_change_times,lower_change_times,total_receiver_distance_upper,total_receiver_distance_lower,upper_hit_time,lower_hit_time, shot_degree, precise_landings)
-    draw_timeline(events, speeds, fps, time_line_path, game_score_dict)
+    draw_timeline(events, speeds, fps, time_line_path, game_score_dict,merged_dict)
+    with open(merged_timeline_path, "w", encoding="utf-8") as f:
+        json.dump(merged_dict, f, ensure_ascii=False, indent=4)
         # plot_heatmap(sum(ball_matrix))
         # plot_heatmap(sum(upper_human_matrix))
         # plot_heatmap(sum(lower_human_matrix))

@@ -934,16 +934,21 @@ def draw_heatmap(image_path, points, output_path, box_size=10):
     result.save(output_path)
 
 
-def draw_timeline(frame_info, speed_info,fps,save_path,game_score_dict):
-    # 创建画布
-    fig, ax = plt.subplots(figsize=(10, 6))
+def draw_timeline(frame_info, speed_info,fps,save_path,game_score_dict,merged_dict = {}):
 
     sorted_frame_ids = sorted(game_score_dict.keys())
     sorted_values = [game_score_dict[frame_id] for frame_id in sorted_frame_ids]
     adjusted_values = sorted_values[1:] + [sorted_values[0]]
     adjusted_game_score_dict = {frame_id: value for frame_id, value in zip(sorted_frame_ids, adjusted_values)}
     color_dict = assign_colors(adjusted_game_score_dict)
-    # 分组逻辑：按 frame_id 是否超过 1000 分组
+    for key,value in game_score_dict.items():
+        merged_dict[key] = [
+                value,
+                color_dict[key]
+            ]
+
+
+    fig, ax = plt.subplots(figsize=(10, 6))
     rows = {}
     for frame_id, label in frame_info:
         row = frame_id // 1000  # 计算行号

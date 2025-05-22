@@ -205,13 +205,22 @@ class DataManagement:
     def process_human(self, humans):
         if self.player_num == 2:  # self.middle_line
             if len(humans) == 0:
-                self.players_boxes['upper'].append(self.players_boxes['upper'][-1])
-                self.players_boxes['lower'].append(self.players_boxes['lower'][-1])
-                self.players_actions['upper'].append(self.players_actions['upper'][-1])
-                self.players_actions['lower'].append(self.players_actions['lower'][-1])
-                if len(self.players_kps) > 0:
-                    self.players_kps['upper'].append(self.players_kps['upper'][-1])
-                    self.players_kps['lower'].append(self.players_kps['lower'][-1])
+                try:
+                    self.players_boxes['upper'].append(self.players_boxes['upper'][-1])
+                    self.players_boxes['lower'].append(self.players_boxes['lower'][-1])
+                    self.players_actions['upper'].append(self.players_actions['upper'][-1])
+                    self.players_actions['lower'].append(self.players_actions['lower'][-1])
+                    if len(self.players_kps) > 0:
+                        self.players_kps['upper'].append(self.players_kps['upper'][-1])
+                        self.players_kps['lower'].append(self.players_kps['lower'][-1])
+                except:
+                    self.players_boxes['upper'].append(self.players_boxes['upper'][-1])
+                    self.players_boxes['lower'].append(self.players_boxes['lower'][-1])
+                    self.players_actions['upper'].append(self.players_actions['upper'][-1])
+                    self.players_actions['lower'].append(self.players_actions['lower'][-1])
+                    if len(self.players_kps) > 0:
+                        self.players_kps['upper'].append(self.players_kps['upper'][-1])
+                        self.players_kps['lower'].append(self.players_kps['lower'][-1])
 
             else:
                 priority_order = [2, 0, 1, 3]
